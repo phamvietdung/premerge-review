@@ -1,0 +1,100 @@
+{
+  "name": "premerge-review",
+  "displayName": "PreMerge Review",
+  "description": "",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.102.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "premergeReviewSidebar",
+          "title": "PreMerge Review",
+          "icon": "$(preview)"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "premerge-review.helloWorld",
+        "title": "Hello World"
+      },
+      {
+        "command": "premerge-review.refreshGit",
+        "title": "Refresh Git Branches"
+      },
+      {
+        "command": "premerge-review.showReviewData",
+        "title": "Show Current Review Data"
+      }
+    ],
+    "views": {
+      "premergeReviewSidebar": [
+        {
+          "id": "premergeReviewView",
+          "name": "PreMerge Review",
+          "type": "webview",
+          "icon": "$(preview)"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "PreMerge Review",
+      "properties": {
+        "premergeReview.instructionFiles": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            ".github/instructions.md",
+            ".github/review-instructions.md",
+            "docs/review-guidelines.md"
+          ],
+          "description": "List of instruction file paths to read for review guidance. Paths are relative to workspace root. Extension will automatically load any existing files.",
+          "scope": "resource"
+        },
+        "premergeReview.maxInstructionFileSize": {
+          "type": "number",
+          "default": 1048576,
+          "description": "Maximum size in bytes for instruction files (default: 1MB)",
+          "scope": "resource"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile && npm run build-webview",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "build-webview": "node build-webview.js",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@preact/preset-vite": "^2.10.2",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "20.x",
+    "@types/react": "^19.1.8",
+    "@types/vscode": "^1.102.0",
+    "@types/vscode-webview": "^1.57.5",
+    "@typescript-eslint/eslint-plugin": "^8.31.1",
+    "@typescript-eslint/parser": "^8.31.1",
+    "@vscode/test-cli": "^0.0.11",
+    "@vscode/test-electron": "^2.5.2",
+    "esbuild": "^0.25.6",
+    "eslint": "^9.25.1",
+    "typescript": "^5.8.3"
+  },
+  "dependencies": {
+    "preact": "^10.26.9",
+    "simple-git": "^3.28.0"
+  }
+}
