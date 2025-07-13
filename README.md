@@ -34,11 +34,15 @@
 
 ---
 
-<!-- ## 📸 UI Preview
+## 📸 UI Preview
 
-![PreMerge Review UI](./assets/preview.png)
+![Primary sidebar UI](./media/readme-img/primary-sidebar.png)
 
---- -->
+![Setting UI](./media/readme-img/settings.png)
+
+![Result view UI](./media/readme-img/result.png)
+
+---
 <!-- 
 ## 💡 Motivation
 
