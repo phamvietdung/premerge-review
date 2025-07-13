@@ -1,10 +1,9 @@
-// The module 'vscode' contains the VS Code extensibility API
-// Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
 import { SidebarProvider } from './sidebarProvider';
 import { GitService } from './gitService';
 import { ReviewDataService } from './reviewDataService';
 import { ReviewService } from './reviewService';
+import { SlackService } from './slackService';
 
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
@@ -31,7 +30,7 @@ export function activate(context: vscode.ExtensionContext) {
 	loadGitInfo(gitService);
 
 	// Register the sidebar provider with git service
-	const provider = new SidebarProvider(context.extensionUri, gitService);
+	const provider = new SidebarProvider(context.extensionUri, gitService, context);
 	context.subscriptions.push(
 		vscode.window.registerWebviewViewProvider(SidebarProvider.viewType, provider)
 	);
@@ -71,6 +70,24 @@ export function activate(context: vscode.ExtensionContext) {
 		}
 	});
 
+	const testSlackCommand = vscode.commands.registerCommand('premerge-review.testSlackConnection', async () => {
+		const slackService = SlackService.getInstance();
+		if (!slackService.isSlackConfigured()) {
+			const result = await vscode.window.showInformationMessage(
+				'Slack webhook integration is not configured. Would you like to set it up?',
+				'Open Settings',
+				'Cancel'
+			);
+			
+			if (result === 'Open Settings') {
+				vscode.commands.executeCommand('workbench.action.openSettings', 'premergeReview.slack');
+			}
+			return;
+		}
+
+		await slackService.testSlackConnection();
+	});
+
 	// The command has been defined in the package.json file
 	// Now provide the implementation of the command with registerCommand
 	// The commandId parameter must match the command field in package.json
@@ -80,7 +97,7 @@ export function activate(context: vscode.ExtensionContext) {
 		vscode.window.showInformationMessage('Hello World from PreMerge Review!');
 	});
 
-	context.subscriptions.push(disposable, refreshGitCommand, showReviewDataCommand);
+	context.subscriptions.push(disposable, refreshGitCommand, showReviewDataCommand, testSlackCommand);
 }
 
 async function loadGitInfo(gitService: GitService) {

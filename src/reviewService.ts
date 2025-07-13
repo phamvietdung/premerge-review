@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import { ReviewDataService, ReviewData } from './reviewDataService';
+import { SendReviewDiffChangeRequest } from './copilotChatService';
 
 // Interface for review processing parameters
 export interface ReviewProcessParams {
@@ -37,6 +38,7 @@ export class ReviewService {
      */
     public async processReview(
         params: ReviewProcessParams,
+        context: vscode.ExtensionContext,
         progressCallback?: (increment: number, message: string) => void
     ): Promise<void> {
         try {
@@ -61,7 +63,7 @@ export class ReviewService {
 
             // Step 4: Generate review comments/suggestions
             progressCallback?.(80, 'Generating review feedback...');
-            const reviewResults = await this.generateReviewFeedback(reviewData, instructions);
+            const reviewResults = await this.generateReviewFeedback(reviewData, instructions, context);
 
             // Step 5: Present results to user
             progressCallback?.(100, 'Review processing complete!');
@@ -155,12 +157,12 @@ export class ReviewService {
     /**
      * Generate review feedback (placeholder for AI integration)
      */
-    private async generateReviewFeedback(reviewData: ReviewData, instructions: InstructionFile[]): Promise<any> {
-        // TODO: Implement review feedback generation
-        console.log('Generating review feedback...');
+    private async generateReviewFeedback(reviewData: ReviewData, instructions: InstructionFile[], context: vscode.ExtensionContext): Promise<any> {
         
-        // Simulate feedback generation
-        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        var combineInstructionContent = instructions.filter(i => i.exists).map(i => i.content).join('\n\n');
+
+        await SendReviewDiffChangeRequest(combineInstructionContent, reviewData.diff, context);
         
         return {
             summary: `Review completed for ${reviewData.diffSummary.files.length} files`,

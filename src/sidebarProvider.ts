@@ -8,10 +8,12 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
     public static readonly viewType = 'premergeReviewView';
 
     private _view?: vscode.WebviewView;
+    private _context?: vscode.ExtensionContext;
 
     constructor(
         private readonly _extensionUri: vscode.Uri,
-        private readonly _gitService: GitService
+        private readonly _gitService: GitService,
+        private readonly _extensionContext: vscode.ExtensionContext
     ) { }
 
     public resolveWebviewView(
@@ -170,7 +172,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                 cancellable: true
             }, async (progress, token) => {
                 // Use ReviewService to process the review
-                await reviewService.processReview(params, (increment, message) => {
+                await reviewService.processReview(params, this._extensionContext, (increment: number, message: string) => {
                     progress.report({ increment, message });
                 });
             });

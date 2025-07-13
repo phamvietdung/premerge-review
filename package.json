@@ -32,6 +32,10 @@
       {
         "command": "premerge-review.showReviewData",
         "title": "Show Current Review Data"
+      },
+      {
+        "command": "premerge-review.testSlackConnection",
+        "title": "Test Slack Connection"
       }
     ],
     "views": {
@@ -64,6 +68,12 @@
           "type": "number",
           "default": 1048576,
           "description": "Maximum size in bytes for instruction files (default: 1MB)",
+          "scope": "resource"
+        },
+        "premergeReview.slack.webhookUrl": {
+          "type": "string",
+          "default": "",
+          "description": "Slack Incoming Webhook URL (e.g., https://hooks.slack.com/services/YOUR/WEBHOOK/URL). Leave empty to disable Slack integration.",
           "scope": "resource"
         }
       }
