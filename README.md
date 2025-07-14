@@ -1,4 +1,5 @@
-# PreMerge Review
+
+![Premerge Review](./media/readme-img/logo.png)
 
 **PreMerge Review** is a Visual Studio Code extension that helps developers perform AI-assisted code reviews _before_ merging their feature branches. It generates a smart review prompt from the Git diff between branches, optionally using your team’s custom review instructions.
 

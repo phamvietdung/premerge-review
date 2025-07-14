@@ -16,7 +16,7 @@
         {
           "id": "premergeReviewSidebar",
           "title": "PreMerge Review",
-          "icon": "$(preview)"
+          "icon": "./media/icon.png"
         }
       ]
     },
@@ -44,7 +44,7 @@
           "id": "premergeReviewView",
           "name": "PreMerge Review",
           "type": "webview",
-          "icon": "$(preview)"
+          "icon": "./media/icon.png"
         }
       ]
     },

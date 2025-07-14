@@ -384,7 +384,7 @@ function App() {
     return (
         <div style={styles.container as any}>
             <div style={styles.header as any}>
-                <h2 style={styles.heading as any}>Code Review</h2>
+                <h2 style={styles.heading as any}>Premerge Review Extensions</h2>
                 <button style={styles.refreshButton as any} onClick={handleRefreshGit} title="Refresh git branches">
                     🔄
                 </button>
