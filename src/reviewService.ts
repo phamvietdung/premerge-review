@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import { ReviewDataService, ReviewData } from './reviewDataService';
-import { SendReviewDiffChangeRequest } from './copilotChatService';
+import { SendReviewDiffChangeRequest, AuditContext } from './copilotChatService';
 
 // Interface for review processing parameters
 export interface ReviewProcessParams {
@@ -158,11 +158,23 @@ export class ReviewService {
      * Generate review feedback (placeholder for AI integration)
      */
     private async generateReviewFeedback(reviewData: ReviewData, instructions: InstructionFile[], context: vscode.ExtensionContext): Promise<any> {
-        
-
         var combineInstructionContent = instructions.filter(i => i.exists).map(i => i.content).join('\n\n');
 
-        await SendReviewDiffChangeRequest(combineInstructionContent, reviewData.diff, context);
+        // Create audit context
+        const auditContext: AuditContext = {
+            reviewer: await this.getReviewerName(),
+            reviewTime: new Date().toISOString(),
+            sourceBranch: reviewData.currentBranch,
+            targetBranch: reviewData.baseBranch,
+            commitRange: reviewData.selectedCommit ? {
+                fromCommit: reviewData.selectedCommit,
+                toCommit: reviewData.currentBranch
+            } : undefined,
+            workspaceName: vscode.workspace.name,
+            gitRepoUrl: await this.getGitRepoUrl()
+        };
+
+        await SendReviewDiffChangeRequest(combineInstructionContent, reviewData.diff, auditContext, context);
         
         return {
             summary: `Review completed for ${reviewData.diffSummary.files.length} files`,
@@ -218,5 +230,55 @@ export class ReviewService {
         const config = vscode.workspace.getConfiguration('premergeReview');
         await config.update('instructionFiles', paths, vscode.ConfigurationTarget.Workspace);
         vscode.window.showInformationMessage('Instruction file paths updated successfully');
+    }
+
+    /**
+     * Get Git repository URL
+     */
+    private async getGitRepoUrl(): Promise<string | undefined> {
+        try {
+            const simpleGit = require('simple-git');
+            const git = simpleGit(this.workspaceRoot);
+            
+            // Get list of remotes
+            const remotes = await git.getRemotes(true);
+            
+            // Find origin remote or use the first available
+            const originRemote = remotes.find((remote: any) => remote.name === 'origin') || remotes[0];
+            
+            if (originRemote && originRemote.refs && originRemote.refs.fetch) {
+                return originRemote.refs.fetch;
+            }
+            
+            return undefined;
+        } catch (error) {
+            console.error('Error getting git repository URL:', error);
+            return undefined;
+        }
+    }
+
+    /**
+     * Get reviewer name from git config or VS Code environment
+     */
+    private async getReviewerName(): Promise<string> {
+        try {
+            const simpleGit = require('simple-git');
+            const git = simpleGit(this.workspaceRoot);
+            
+            // Try to get git username
+            const gitConfig = await git.listConfig();
+            const userName = gitConfig.all['user.name'];
+            const userEmail = gitConfig.all['user.email'];
+            
+            if (userName) {
+                return userEmail ? `${userName} <${userEmail}>` : userName;
+            }
+            
+            // Fallback to VS Code username or machine ID
+            return vscode.env.remoteName || vscode.env.machineId || 'Unknown Reviewer';
+        } catch (error) {
+            console.error('Error getting reviewer name:', error);
+            return vscode.env.machineId || 'Unknown Reviewer';
+        }
     }
 }

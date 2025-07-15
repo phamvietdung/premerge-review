@@ -75,6 +75,14 @@
           "default": "",
           "description": "Slack Incoming Webhook URL (e.g., https://hooks.slack.com/services/YOUR/WEBHOOK/URL). Leave empty to disable Slack integration.",
           "scope": "resource"
+        },
+        "premergeReview.maxTokensPerPart": {
+          "type": "number",
+          "default": 8000,
+          "minimum": 1000,
+          "maximum": 32000,
+          "description": "Maximum number of tokens per part when splitting large diffs for review. Smaller values use less tokens but require more API calls.",
+          "scope": "resource"
         }
       }
     }

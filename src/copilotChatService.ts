@@ -1,30 +1,47 @@
 import * as vscode from "vscode";
 import { ReviewResultView } from './reviewResultView';
 
+export interface AuditContext {
+    reviewer: string;
+    reviewTime: string;
+    sourceBranch: string;
+    targetBranch: string;
+    commitRange?: {
+        fromCommit?: string;
+        toCommit?: string;
+    };
+    workspaceName?: string;
+    gitRepoUrl?: string;
+}
+
 export async function SendReviewDiffChangeRequest(
     instructionContents: string,
     diffChangeContent: string,
+    auditContext: AuditContext,
     context: vscode.ExtensionContext
 ): Promise<string | null> {
-    // Check if diff content is too large and needs to be split
-    const maxTokensPerPart = 8000; // Conservative estimate: ~3000 tokens per part
+    // Get maxTokensPerPart from user settings
+    const config = vscode.workspace.getConfiguration('premergeReview');
+    const maxTokensPerPart = config.get<number>('maxTokensPerPart', 8000);
+    
     const estimatedTokens = Math.ceil(diffChangeContent.length / 4); // Rough estimate: 4 chars per token
     
     if (estimatedTokens <= maxTokensPerPart) {
         // Single request for small diffs
-        return await sendSingleReviewRequest(instructionContents, diffChangeContent, context);
+        return await sendSingleReviewRequest(instructionContents, diffChangeContent, auditContext, context);
     } else {
         // Split into multiple parts for large diffs
-        return await sendMultiPartReviewRequest(instructionContents, diffChangeContent, context, maxTokensPerPart);
+        return await sendMultiPartReviewRequest(instructionContents, diffChangeContent, auditContext, context, maxTokensPerPart);
     }
 }
 
 async function sendSingleReviewRequest(
     instructionContents: string,
     diffChangeContent: string,
+    auditContext: AuditContext,
     context: vscode.ExtensionContext
 ): Promise<string | null> {
-    const prompt = createReviewPrompt(instructionContents, diffChangeContent, false);
+    const prompt = createReviewPrompt(instructionContents, diffChangeContent, auditContext, false);
 
     return await vscode.window.withProgress(
         {
@@ -56,6 +73,7 @@ async function sendSingleReviewRequest(
 async function sendMultiPartReviewRequest(
     instructionContents: string,
     diffChangeContent: string,
+    auditContext: AuditContext,
     context: vscode.ExtensionContext,
     maxTokensPerPart: number
 ): Promise<string | null> {
@@ -87,6 +105,7 @@ async function sendMultiPartReviewRequest(
                     const prompt = createReviewPrompt(
                         instructionContents, 
                         diffParts[i], 
+                        auditContext,
                         isPartialReview, 
                         partNumber, 
                         diffParts.length
@@ -141,6 +160,7 @@ async function sendMultiPartReviewRequest(
 function createReviewPrompt(
     instructionContents: string, 
     diffContent: string, 
+    auditContext: AuditContext,
     isPartialReview: boolean = false,
     partNumber?: number,
     totalParts?: number
@@ -149,7 +169,25 @@ function createReviewPrompt(
         ? `\n\nNOTE: This is part ${partNumber} of ${totalParts} of a larger diff. Focus on reviewing this specific part, but keep in mind it's part of a larger change set.`
         : '';
 
-    return `Based on the following instructions:
+    // Create audit context section
+    const auditInfo = `
+Review Context:
+- Reviewer: ${auditContext.reviewer}
+- Review Time: ${auditContext.reviewTime}
+- Source Branch: ${auditContext.sourceBranch}
+- Target Branch: ${auditContext.targetBranch}${auditContext.commitRange?.fromCommit ? `
+- From Commit: ${auditContext.commitRange.fromCommit}` : ''}${auditContext.commitRange?.toCommit ? `
+- To Commit: ${auditContext.commitRange.toCommit}` : ''}${auditContext.workspaceName ? `
+- Workspace: ${auditContext.workspaceName}` : ''}${auditContext.gitRepoUrl ? `
+- Repository: ${auditContext.gitRepoUrl}` : ''}
+`;
+
+    return `
+Base on the following audit context:
+----------------------------------    
+    ${auditInfo}
+---------------------------------- 
+Based on the following instructions:
 ----------------------------------
 ${instructionContents}
 ----------------------------------
