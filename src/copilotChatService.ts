@@ -182,22 +182,53 @@ Review Context:
 - Repository: ${auditContext.gitRepoUrl}` : ''}
 `;
 
+// return `
+// Audit Context:
+// ----------------------------------    
+// ${auditInfo}
+
+
+// Review Instructions (MANDATORY):
+// ----------------------------------
+// ${instructionContents}
+
+
+
+// Code Changes to Review:
+// ----------------------------------
+// ${diffContent}
+
+
+// ${partInfo ? `Additional Context:\n----------------------------------\n${partInfo}\n\n` : ''}
+
+// Review Requirement:
+// You must perform a detailed code review **based strictly on the instructions provided above**.
+
+// Your review must include the following:
+// 1. **Overall assessment of the changes**  
+// 2. **Potential issues or improvements**  
+// 3. **Code quality feedback**  
+// 4. **Best practices recommendations**
+// ${isPartialReview ? '5. Dependencies or connections with other parts' : ''}
+// `;
+
     return `
-Base on the following audit context:
+Based on the following audit context:
 ----------------------------------    
-    ${auditInfo}
+${auditInfo}
 ---------------------------------- 
-Based on the following instructions:
+And require to following the instructions:
 ----------------------------------
 ${instructionContents}
 ----------------------------------
-
-Analyze the following code changes and provide a detailed review:
+And require to review the following code changes:
 ----------------------------------
 ${diffContent}
-----------------------------------${partInfo}
+----------------------------------
 
-Please provide:
+${partInfo}
+
+And require to provide:
 1. Overall assessment of the changes
 2. Potential issues or improvements
 3. Code quality feedback
