@@ -280,10 +280,13 @@ function App() {
             if (message.type === 'gitInfo') {
                 setGitInfo(message.data);
                 setCurrentBranch(message.data.currentBranch);
-                // Set default base branch (usually dev or main)
-                const defaultBase = message.data.allBranches.includes('dev') ? 'dev' : 
-                                  message.data.allBranches.includes('main') ? 'main' : 
-                                  message.data.allBranches[0] || '';
+                // Set default base branch with priority order
+                const priorityBranches = ['dev', 'main', 'master', 'staging'];
+                const defaultBase = priorityBranches.find(branch => 
+                    message.data.allBranches.includes(branch)
+                ) || message.data.allBranches.find((branch: string) => 
+                    branch !== message.data.currentBranch
+                ) || '';
                 setBaseBranch(defaultBase);
                 setIsLoading(false);
             } else if (message.type === 'branchCommits') {
@@ -326,8 +329,11 @@ function App() {
     const fallbackBaseBranchOptions = [
         'dev',
         'main',
+        'master',
         'staging',
-        'release/v2.0.0'
+        'release/v2.0.0',
+        'feature/new-dashboard',
+        'hotfix/security-patch'
     ];
 
     // Use real git data or fallback
@@ -336,7 +342,7 @@ function App() {
         : fallbackBranchOptions;
 
     const baseBranchOptions = gitInfo.isGitRepo && gitInfo.allBranches.length > 0
-        ? gitInfo.allBranches.filter((branch: string) => ['dev', 'main', 'master', 'staging'].includes(branch) || branch.startsWith('release/'))
+        ? gitInfo.allBranches
         : fallbackBaseBranchOptions;
 
     const handleCreateReview = () => {
@@ -437,13 +443,13 @@ function App() {
             )}
 
             <label style={{ ...styles.label, marginTop: '1rem' } as any}>
-                Base Branch {selectedCommit ? '(Will be ignored if commit is selected)' : ''}
+                Target Branch {selectedCommit ? '(Will be ignored if commit is selected)' : ''} {gitInfo.isGitRepo && `(${gitInfo.allBranches.length} branches available)`}
             </label>
             <SearchableSelect
                 options={baseBranchOptions}
                 value={baseBranch}
                 onChange={setBaseBranch}
-                placeholder="Select base branch..."
+                placeholder="Select target branch..."
             />
 
             <button 

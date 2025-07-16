@@ -1,8 +1,13 @@
 {
   "name": "premerge-review",
   "displayName": "PreMerge Review",
-  "description": "",
+  "description": "AI-powered pre-merge code review assistant with multi-part diff processing and audit trail",
   "version": "0.0.1",
+  "publisher": "phamvietdung",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/phamvietdung/premerge-review.git"
+  },
   "engines": {
     "vscode": "^1.102.0"
   },
