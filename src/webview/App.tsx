@@ -255,11 +255,14 @@ const styles = {
     },
     // Review actions section
     reviewSection: {
-        marginTop: '1.5rem',
-        padding: '1rem',
+        position:'absolute',
+        width: '100%',
+        bottom: '0',
+        left: '0',
         backgroundColor: '#2a2a2a',
-        borderRadius: '6px',
-        border: '1px solid #444',
+        borderTop: '1px solid #444',
+        padding: '0.75rem',
+        boxSizing: 'border-box',
     },
     reviewSectionTitle: {
         fontSize: '0.9rem',
@@ -290,8 +293,9 @@ const styles = {
     },
     reviewActions: {
         display: 'flex',
-        flexDirection: 'column',
+        flexDirection: 'row',
         gap: '0.5rem',
+        justifyContent: 'space-between',
     },
     actionButton: {
         padding: '0.6rem 0.75rem',
@@ -305,6 +309,8 @@ const styles = {
         alignItems: 'center',
         justifyContent: 'center',
         gap: '0.5rem',
+        flex: 1, // Make buttons take equal width
+        minHeight: '40px',
     },
     primaryButton: {
         backgroundColor: '#007acc',
@@ -327,6 +333,11 @@ const styles = {
         backgroundColor: '#0ea5e9',
         color: '#ffffff',
         border: '1px solid #0284c7',
+    },
+    settingsButton: {
+        backgroundColor: '#6b7280',
+        color: '#ffffff',
+        border: '1px solid #4b5563',
     },
 };
 
@@ -444,6 +455,11 @@ function App() {
         vscode.postMessage({ type: 'showReviewResult' });
     };
 
+    const handleShowSettings = () => {
+        // Placeholder for settings functionality
+        vscode.postMessage({ type: 'showSettings' });
+    };
+
     if (isLoading) {
         return (
             <div style={styles.container as any}>
@@ -547,10 +563,6 @@ function App() {
 
             {/* Review Actions Section */}
             <div style={styles.reviewSection as any}>
-                <div style={styles.reviewSectionTitle as any}>
-                    � Review History
-                </div>
-                
                 <div style={styles.reviewActions as any}>
                     <button 
                         style={{
@@ -560,7 +572,18 @@ function App() {
                         onClick={handleShowReviewResult}
                         title="Show review history and results"
                     >
-                        📋 Review History
+                        📋 History
+                    </button>
+                    
+                    <button 
+                        style={{
+                            ...styles.actionButton,
+                            ...styles.settingsButton
+                        } as any}
+                        onClick={handleShowSettings}
+                        title="Extension settings and configuration"
+                    >
+                        ⚙️ Settings (Comming Soon)
                     </button>
                 </div>
             </div>
