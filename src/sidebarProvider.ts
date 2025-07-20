@@ -3,6 +3,9 @@ import { getNonce } from './utils';
 import { GitService } from './gitService';
 import { ReviewDataService } from './reviewDataService';
 import { ReviewService } from './reviewService';
+import { DiffViewerService } from './diffViewerService';
+import { ReviewHistoryView } from './reviewHistoryView';
+import { ReviewResultService } from './reviewResultService';
 
 export class SidebarProvider implements vscode.WebviewViewProvider {
     public static readonly viewType = 'premergeReviewView';
@@ -94,8 +97,14 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
 
                                 progress.report({ increment: 100, message: 'Review data ready!' });
 
-                                // Show success message with summary
+                                // Notify webview that review has been created
                                 const summary = reviewDataService.getReviewSummary();
+                                webviewView.webview.postMessage({
+                                    type: 'reviewCreated',
+                                    data: { summary }
+                                });
+
+                                // Show success message with summary
                                 const compareInfo = selectedCommit ? 
                                     `from commit ${selectedCommit.substring(0, 8)}` : 
                                     `from branch ${baseBranch}`;
@@ -106,12 +115,27 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                                     'Process Review'
                                 ).then(async selection => {
                                     if (selection === 'Show Details') {
-                                        // TODO: Show detailed diff view
-                                        vscode.window.showInformationMessage('Diff details view will be implemented next');
+                                        // Show diff viewer
+                                        const reviewService = ReviewService.getInstance(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath);
+                                        if (reviewService) {
+                                            reviewService.setExtensionContext(this._extensionContext);
+                                            try {
+                                                const diffViewerService = DiffViewerService.getInstance();
+                                                const reviewData = reviewDataService.getReviewData();
+                                                if (reviewData) {
+                                                    await diffViewerService.showDiffViewer(reviewData, this._extensionContext);
+                                                    vscode.window.showInformationMessage('📊 Diff viewer opened!');
+                                                }
+                                            } catch (error) {
+                                                console.error('Error showing diff viewer:', error);
+                                                vscode.window.showErrorMessage('Failed to show diff viewer');
+                                            }
+                                        }
                                     } else if (selection === 'Process Review') {
                                         // Start processing review with ReviewService
                                         const reviewService = ReviewService.getInstance(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath);
                                         if (reviewService) {
+                                            reviewService.setExtensionContext(this._extensionContext);
                                             await this.processReviewWithService(reviewService, {
                                                 currentBranch,
                                                 baseBranch,
@@ -151,6 +175,120 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                         data: refreshedGitInfo
                     });
                     vscode.window.showInformationMessage('Git branches refreshed!');
+                    break;
+                case 'showDiffViewer':
+                    try {
+                        const reviewDataService = ReviewDataService.getInstance();
+                        const reviewData = reviewDataService.getReviewData();
+                        
+                        if (!reviewData) {
+                            vscode.window.showWarningMessage('No review data available. Please create a review first.');
+                            return;
+                        }
+
+                        const diffViewerService = DiffViewerService.getInstance();
+                        await diffViewerService.showDiffViewer(reviewData, this._extensionContext);
+                        vscode.window.showInformationMessage('📊 Diff viewer opened!');
+                    } catch (error) {
+                        console.error('Error showing diff viewer:', error);
+                        vscode.window.showErrorMessage('Failed to show diff viewer');
+                    }
+                    break;
+                case 'processReview':
+                    try {
+                        const reviewDataService = ReviewDataService.getInstance();
+                        const reviewData = reviewDataService.getReviewData();
+                        
+                        if (!reviewData) {
+                            vscode.window.showWarningMessage('No review data available. Please create a review first.');
+                            return;
+                        }
+
+                        const reviewService = ReviewService.getInstance(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath);
+                        if (reviewService) {
+                            reviewService.setExtensionContext(this._extensionContext);
+                            await this.processReviewWithService(reviewService, {
+                                currentBranch: reviewData.currentBranch,
+                                baseBranch: reviewData.baseBranch,
+                                selectedCommit: reviewData.selectedCommit
+                            });
+                        } else {
+                            vscode.window.showErrorMessage('Unable to initialize review service');
+                        }
+                    } catch (error) {
+                        console.error('Error processing review:', error);
+                        vscode.window.showErrorMessage('Failed to process review');
+                    }
+                    break;
+                case 'postToSlack':
+                    try {
+                        const reviewDataService = ReviewDataService.getInstance();
+                        const reviewData = reviewDataService.getReviewData();
+                        
+                        if (!reviewData) {
+                            vscode.window.showWarningMessage('No review data available. Please create a review first.');
+                            return;
+                        }
+
+                        // Get the review summary for Slack
+                        const summary = reviewDataService.getReviewSummary();
+                        const compareInfo = reviewData.selectedCommit ? 
+                            `from commit ${reviewData.selectedCommit.substring(0, 8)}` : 
+                            `from branch ${reviewData.baseBranch}`;
+
+                        // For now, just show a message with what would be posted
+                        // You can integrate with SlackService here if needed
+                        const slackMessage = `📋 Code Review Summary:\nComparing ${reviewData.currentBranch} ${compareInfo}\n\n${summary}`;
+                        
+                        vscode.window.showInformationMessage(
+                            'Slack integration coming soon!',
+                            'Copy Message'
+                        ).then(selection => {
+                            if (selection === 'Copy Message') {
+                                vscode.env.clipboard.writeText(slackMessage);
+                                vscode.window.showInformationMessage('Review summary copied to clipboard!');
+                            }
+                        });
+                    } catch (error) {
+                        console.error('Error posting to Slack:', error);
+                        vscode.window.showErrorMessage('Failed to post to Slack');
+                    }
+                    break;
+                case 'showReviewResult':
+                    try {
+                        const reviewResultService = ReviewResultService.getInstance();
+                        
+                        if (!reviewResultService.hasStoredResults()) {
+                            vscode.window.showInformationMessage(
+                                'No review results found. Process some reviews first to see their history.',
+                                'OK'
+                            );
+                            return;
+                        }
+
+                        // Show review history view
+                        ReviewHistoryView.createOrShow(this._extensionContext);
+                        
+                    } catch (error) {
+                        console.error('Error showing review result:', error);
+                        vscode.window.showErrorMessage('Failed to show review result');
+                    }
+                    break;
+                case 'clearReviewData':
+                    try {
+                        const reviewDataService = ReviewDataService.getInstance();
+                        reviewDataService.clearReviewData();
+                        
+                        // Notify webview that review data has been cleared
+                        webviewView.webview.postMessage({
+                            type: 'reviewDataCleared'
+                        });
+                        
+                        vscode.window.showInformationMessage('Review data cleared successfully!');
+                    } catch (error) {
+                        console.error('Error clearing review data:', error);
+                        vscode.window.showErrorMessage('Failed to clear review data');
+                    }
                     break;
             }
         });

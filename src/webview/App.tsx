@@ -253,6 +253,81 @@ const styles = {
         fontSize: '0.8rem',
         cursor: 'pointer',
     },
+    // Review actions section
+    reviewSection: {
+        marginTop: '1.5rem',
+        padding: '1rem',
+        backgroundColor: '#2a2a2a',
+        borderRadius: '6px',
+        border: '1px solid #444',
+    },
+    reviewSectionTitle: {
+        fontSize: '0.9rem',
+        fontWeight: 'bold',
+        marginBottom: '0.75rem',
+        color: '#ffffff',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '0.5rem',
+    },
+    reviewStatus: {
+        fontSize: '0.8rem',
+        marginBottom: '1rem',
+        padding: '0.5rem',
+        borderRadius: '4px',
+        backgroundColor: '#1a4d1a',
+        color: '#4ade80',
+        border: '1px solid #22c55e',
+    },
+    noReviewStatus: {
+        fontSize: '0.8rem',
+        marginBottom: '1rem',
+        padding: '0.5rem',
+        borderRadius: '4px',
+        backgroundColor: '#4d1a1a',
+        color: '#fca5a5',
+        border: '1px solid #ef4444',
+    },
+    reviewActions: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '0.5rem',
+    },
+    actionButton: {
+        padding: '0.6rem 0.75rem',
+        fontSize: '0.85rem',
+        fontWeight: '500',
+        borderRadius: '4px',
+        border: 'none',
+        cursor: 'pointer',
+        transition: 'all 0.2s ease',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '0.5rem',
+    },
+    primaryButton: {
+        backgroundColor: '#007acc',
+        color: '#ffffff',
+    },
+    secondaryButton: {
+        backgroundColor: '#4a5568',
+        color: '#ffffff',
+    },
+    successButton: {
+        backgroundColor: '#059669',
+        color: '#ffffff',
+    },
+    disabledButton: {
+        backgroundColor: '#374151',
+        color: '#9ca3af',
+        cursor: 'not-allowed',
+    },
+    infoButton: {
+        backgroundColor: '#0ea5e9',
+        color: '#ffffff',
+        border: '1px solid #0284c7',
+    },
 };
 
 function App() {
@@ -294,6 +369,12 @@ function App() {
                 console.log('Received commits for branch:', message.data.commits);
                 setCommits(message.data.commits);
                 setLoadingCommits(false);
+            } else if (message.type === 'reviewCreated') {
+                // Review created - no need to track state for this simplified UI
+                console.log('Review created:', message.data.summary);
+            } else if (message.type === 'reviewDataCleared') {
+                // Review data cleared - no need to track state for this simplified UI
+                console.log('Review data cleared');
             }
         };
 
@@ -357,6 +438,10 @@ function App() {
     const handleRefreshGit = () => {
         setIsLoading(true);
         vscode.postMessage({ type: 'refreshGit' });
+    };
+
+    const handleShowReviewResult = () => {
+        vscode.postMessage({ type: 'showReviewResult' });
     };
 
     if (isLoading) {
@@ -459,6 +544,26 @@ function App() {
             >
                 Create Review {selectedCommit ? `(from commit ${selectedCommit.substring(0, 8)})` : `(from ${baseBranch})`}
             </button>
+
+            {/* Review Actions Section */}
+            <div style={styles.reviewSection as any}>
+                <div style={styles.reviewSectionTitle as any}>
+                    � Review History
+                </div>
+                
+                <div style={styles.reviewActions as any}>
+                    <button 
+                        style={{
+                            ...styles.actionButton,
+                            ...styles.infoButton
+                        } as any}
+                        onClick={handleShowReviewResult}
+                        title="Show review history and results"
+                    >
+                        📋 Review History
+                    </button>
+                </div>
+            </div>
         </div>
     );
 }

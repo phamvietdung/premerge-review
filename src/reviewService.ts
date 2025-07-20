@@ -3,6 +3,10 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { ReviewDataService, ReviewData } from './reviewDataService';
 import { SendReviewDiffChangeRequest, AuditContext } from './copilotChatService';
+import { DiffViewerService } from './diffViewerService';
+import { SlackService } from './slackService';
+import { ReviewResultService } from './reviewResultService';
+import { ReviewHistoryView } from './reviewHistoryView';
 
 // Interface for review processing parameters
 export interface ReviewProcessParams {
@@ -21,6 +25,7 @@ export interface InstructionFile {
 export class ReviewService {
     private static instance: ReviewService;
     private workspaceRoot: string;
+    private extensionContext: vscode.ExtensionContext | undefined;
 
     private constructor(workspaceRoot: string) {
         this.workspaceRoot = workspaceRoot;
@@ -31,6 +36,13 @@ export class ReviewService {
             ReviewService.instance = new ReviewService(workspaceRoot);
         }
         return ReviewService.instance;
+    }
+
+    /**
+     * Set extension context for webview operations
+     */
+    public setExtensionContext(context: vscode.ExtensionContext): void {
+        this.extensionContext = context;
     }
 
     /**
@@ -174,13 +186,39 @@ export class ReviewService {
             gitRepoUrl: await this.getGitRepoUrl()
         };
 
-        await SendReviewDiffChangeRequest(combineInstructionContent, reviewData.diff, auditContext, context);
+        // Send review request and get result
+        const reviewResult = await SendReviewDiffChangeRequest(combineInstructionContent, reviewData.diff, auditContext, context);
+        
+        // Prepare result data
+        const resultData = {
+            summary: `Review completed for ${reviewData.diffSummary.files.length} files`,
+            instructionsUsed: instructions.filter(i => i.exists).length > 0 ? 
+                instructions.filter(i => i.exists).map(i => i.path).join(', ') : 'Default instructions',
+            content: reviewResult || 'No review content generated',
+            isMultiPart: false
+        };
+        
+        // Check if this was handled as a multi-part review (which already stores its own result)
+        const reviewResultService = ReviewResultService.getInstance();
+        const currentResult = reviewResultService.getCurrentReviewResult();
+        
+        // Only store result if it wasn't already stored by multi-part flow
+        if (!currentResult || !currentResult.reviewResults.isMultiPart) {
+            // Store the review result in memory
+            reviewResultService.storeReviewResult(reviewData, resultData);
+            
+            // Show review history after data has been stored (avoid timing issues)
+            setTimeout(() => {
+                ReviewHistoryView.createOrShow(context);
+            }, 100); // Small delay to ensure data is fully saved
+        }
         
         return {
-            summary: `Review completed for ${reviewData.diffSummary.files.length} files`,
+            summary: resultData.summary,
+            instructionsUsed: resultData.instructionsUsed,
             suggestions: [],
             issues: [],
-            instructionsUsed: instructions.filter(i => i.exists).length
+            result: reviewResult
         };
     }
 
@@ -192,23 +230,126 @@ export class ReviewService {
             `from commit ${params.selectedCommit.substring(0, 8)}` : 
             `from branch ${params.baseBranch}`;
 
-        vscode.window.showInformationMessage(
+        const selection = await vscode.window.showInformationMessage(
             `Review processing completed!\n\n` +
             `Comparing ${params.currentBranch} ${compareInfo}\n` +
             `${reviewResults.summary}\n` +
-            `Instructions used: ${reviewResults.instructionsUsed}\n\n` +
-            `Full implementation coming next...`,
-            'Show Detailed Results',
+            `Instructions used: ${reviewResults.instructionsUsed}`,
+            'Show Diff Viewer',
+            'Show Detailed Results', 
+            'Post to Slack',
             'Open Settings'
-        ).then(selection => {
-            if (selection === 'Show Detailed Results') {
+        );
+
+        switch (selection) {
+            case 'Show Diff Viewer':
+                await this.showDiffViewer();
+                break;
+            case 'Show Detailed Results':
                 // TODO: Show detailed review results
                 vscode.window.showInformationMessage('Detailed results view will be implemented next');
-            } else if (selection === 'Open Settings') {
-                // Open extension settings
+                break;
+            case 'Post to Slack':
+                await this.postReviewToSlack(reviewResults);
+                break;
+            case 'Open Settings':
                 vscode.commands.executeCommand('workbench.action.openSettings', 'premergeReview');
+                break;
+        }
+    }
+
+    /**
+     * Show diff viewer with current review data
+     */
+    private async showDiffViewer(): Promise<void> {
+        try {
+            const reviewDataService = ReviewDataService.getInstance();
+            const reviewData = reviewDataService.getReviewData();
+            
+            if (!reviewData) {
+                vscode.window.showErrorMessage('No review data available for diff viewer');
+                return;
             }
-        });
+
+            if (!this.extensionContext) {
+                vscode.window.showErrorMessage('Extension context not available');
+                return;
+            }
+
+            const diffViewerService = DiffViewerService.getInstance();
+            await diffViewerService.showDiffViewer(reviewData, this.extensionContext, {
+                showLineNumbers: true,
+                highlightChanges: true,
+                splitView: false
+            });
+
+            vscode.window.showInformationMessage('📊 Diff viewer opened successfully!');
+        } catch (error) {
+            console.error('Error showing diff viewer:', error);
+            vscode.window.showErrorMessage(`Failed to show diff viewer: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+    }
+
+    /**
+     * Post review to Slack
+     */
+    private async postReviewToSlack(reviewResults: any): Promise<void> {
+        try {
+            const slackService = SlackService.getInstance();
+            
+            if (!slackService.isSlackConfigured()) {
+                const result = await vscode.window.showWarningMessage(
+                    'Slack is not configured. Please set up webhook URL in settings.',
+                    'Open Settings',
+                    'Cancel'
+                );
+                
+                if (result === 'Open Settings') {
+                    vscode.commands.executeCommand('workbench.action.openSettings', 'premergeReview.slack');
+                }
+                return;
+            }
+
+            const reviewContent = this.formatReviewForSlack(reviewResults);
+            const success = await slackService.postReviewToSlack(reviewContent);
+            
+            if (success) {
+                vscode.window.showInformationMessage('✅ Review posted to Slack successfully!');
+            }
+        } catch (error) {
+            console.error('Error posting to Slack:', error);
+            vscode.window.showErrorMessage(`Failed to post to Slack: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+    }
+
+    /**
+     * Format review results for Slack
+     */
+    private formatReviewForSlack(reviewResults: any): string {
+        const reviewDataService = ReviewDataService.getInstance();
+        const reviewData = reviewDataService.getReviewData();
+        
+        if (!reviewData) {
+            return 'Review completed but no data available for formatting.';
+        }
+
+        const compareInfo = reviewData.selectedCommit ? 
+            `from commit \`${reviewData.selectedCommit.substring(0, 8)}\`` : 
+            `compared to \`${reviewData.baseBranch}\``;
+
+        return `
+## 🔍 Code Review Summary
+
+**Branch:** \`${reviewData.currentBranch}\` ${compareInfo}
+**Summary:** ${reviewResults.summary}
+**Files Changed:** ${reviewData.diffSummary.files.length}
+**Changes:** +${reviewData.diffSummary.insertions} -${reviewData.diffSummary.deletions}
+**Instructions Used:** ${reviewResults.instructionsUsed}
+**Issues Found:** ${reviewResults.issues?.length || 0}
+**Suggestions:** ${reviewResults.suggestions?.length || 0}
+
+*Generated by PreMerge Review at ${new Date().toLocaleString()}*
+        `.trim();
     }
 
     /**

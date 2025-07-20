@@ -1,5 +1,8 @@
 import * as vscode from "vscode";
 import { ReviewResultView } from './reviewResultView';
+import { ReviewHistoryView } from './reviewHistoryView';
+import { ReviewResultService } from './reviewResultService';
+import { ReviewDataService } from './reviewDataService';
 
 export interface AuditContext {
     reviewer: string;
@@ -54,8 +57,8 @@ async function sendSingleReviewRequest(
                 const responseAsString = await sendToCopilot(prompt, progress, token);
                 
                 if (responseAsString) {
-                    // Show review result in a nice webview
-                    ReviewResultView.createOrShow(responseAsString, context);
+                    // Note: ReviewHistoryView will be shown by reviewService after storing result
+                    // This avoids timing issues with data not being saved yet
                 }
 
                 return responseAsString;
@@ -85,6 +88,26 @@ async function sendMultiPartReviewRequest(
         },
         async (progress, token) => {
             try {
+                // Get current review data for storing parts
+                const reviewDataService = ReviewDataService.getInstance();
+                const reviewData = reviewDataService.getReviewData();
+                
+                if (!reviewData) {
+                    throw new Error('No review data available for storing multi-part results');
+                }
+
+                // Create initial review result entry
+                const reviewResultService = ReviewResultService.getInstance();
+                const initialResultData = {
+                    summary: `Processing large diff in multiple parts...`,
+                    instructionsUsed: 'Processing...',
+                    content: '',
+                    isMultiPart: true,
+                    parts: []
+                };
+
+                const reviewId = reviewResultService.storeReviewResult(reviewData, initialResultData);
+
                 // Split diff into parts
                 const diffParts = splitDiffIntoParts(diffChangeContent, maxTokensPerPart);
                 const reviewParts: string[] = [];
@@ -118,7 +141,11 @@ async function sendMultiPartReviewRequest(
 
                     const partResponse = await sendToCopilot(prompt, progress, token, false);
                     if (partResponse) {
-                        reviewParts.push(`## Part ${partNumber}/${diffParts.length}\n\n${partResponse}`);
+                        const partContent = `## Part ${partNumber}/${diffParts.length}\n\n${partResponse}`;
+                        reviewParts.push(partContent);
+                        
+                        // Store each part
+                        reviewResultService.storeReviewPart(reviewId, partNumber, diffParts.length, partResponse);
                     }
                 }
 
@@ -131,7 +158,7 @@ async function sendMultiPartReviewRequest(
                     increment: 90,
                     message: "Merging review parts and generating summary...",
                 });
-
+                
                 const mergedReview = await mergeReviewParts(reviewParts, instructionContents, progress, token);
                 
                 progress.report({
@@ -140,8 +167,11 @@ async function sendMultiPartReviewRequest(
                 });
 
                 if (mergedReview) {
-                    // Show merged review result in webview
-                    ReviewResultView.createOrShow(mergedReview, context);
+                    // Store the final merged result
+                    reviewResultService.storeFinalMergedResult(reviewId, mergedReview);
+                    
+                    // Show review history instead of individual result
+                    ReviewHistoryView.createOrShow(context);
                 }
 
                 return mergedReview;

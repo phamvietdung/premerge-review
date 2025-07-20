@@ -1,8 +1,8 @@
 {
   "name": "premerge-review",
   "displayName": "PreMerge Review",
-  "description": "AI-powered pre-merge code review assistant with multi-part diff processing and audit trail",
-  "version": "0.0.1",
+  "description": "AI-assisted code review before merging with visual diff viewer and Slack integration",
+  "version": "0.1.0",
   "publisher": "phamvietdung",
   "repository": {
     "type": "git",
@@ -41,6 +41,30 @@
       {
         "command": "premerge-review.testSlackConnection",
         "title": "Test Slack Connection"
+      },
+      {
+        "command": "premerge-review.showDiffViewer",
+        "title": "Show Diff Viewer",
+        "category": "PreMerge Review",
+        "icon": "$(diff)"
+      },
+      {
+        "command": "premerge-review.exportDiff",
+        "title": "Export Diff",
+        "category": "PreMerge Review",
+        "icon": "$(export)"
+      },
+      {
+        "command": "premerge-review.showReviewHistory",
+        "title": "Show Review History",
+        "category": "PreMerge Review",
+        "icon": "$(history)"
+      },
+      {
+        "command": "premerge-review.clearReviewResults",
+        "title": "Clear All Review Results",
+        "category": "PreMerge Review",
+        "icon": "$(trash)"
       }
     ],
     "views": {
