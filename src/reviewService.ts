@@ -230,32 +230,23 @@ export class ReviewService {
             `from commit ${params.selectedCommit.substring(0, 8)}` : 
             `from branch ${params.baseBranch}`;
 
-        const selection = await vscode.window.showInformationMessage(
+        // Simple completion notification without action buttons
+        // since Review History is already shown automatically
+        const disposable = vscode.window.showInformationMessage(
             `Review processing completed!\n\n` +
             `Comparing ${params.currentBranch} ${compareInfo}\n` +
             `${reviewResults.summary}\n` +
-            `Instructions used: ${reviewResults.instructionsUsed}`,
-            'Show Diff Viewer',
-            'Show Detailed Results', 
-            'Post to Slack',
-            'Open Settings'
+            `Instructions used: ${reviewResults.instructionsUsed}`
         );
-
-        switch (selection) {
-            case 'Show Diff Viewer':
-                await this.showDiffViewer();
-                break;
-            case 'Show Detailed Results':
-                // TODO: Show detailed review results
-                vscode.window.showInformationMessage('Detailed results view will be implemented next');
-                break;
-            case 'Post to Slack':
-                await this.postReviewToSlack(reviewResults);
-                break;
-            case 'Open Settings':
-                vscode.commands.executeCommand('workbench.action.openSettings', 'premergeReview');
-                break;
-        }
+        
+        // Auto-close after 10 seconds
+        setTimeout(() => {
+            if (disposable) {
+                disposable.then(selection => {
+                    // Auto-close after timeout
+                });
+            }
+        }, 10000);
     }
 
     /**

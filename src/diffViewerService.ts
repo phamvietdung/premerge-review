@@ -39,7 +39,7 @@ export class DiffViewerService {
     private static instance: DiffViewerService;
     private panel: vscode.WebviewPanel | undefined;
     private options: DiffViewOptions = {
-        showLineNumbers: true,
+        showLineNumbers: false, // Default to hide line numbers
         highlightChanges: true,
         splitView: false
     };
@@ -240,12 +240,6 @@ export class DiffViewerService {
                 </div>
             </div>
             <div class="diff-controls">
-                <button id="toggleSplitView" class="control-btn ${this.options.splitView ? 'active' : ''}">
-                    ${this.options.splitView ? '📄 Unified View' : '📋 Split View'}
-                </button>
-                <button id="toggleLineNumbers" class="control-btn ${this.options.showLineNumbers ? 'active' : ''}">
-                    ${this.options.showLineNumbers ? '🙈 Hide Numbers' : '🔢 Show Numbers'}
-                </button>
                 <button id="exportDiff" class="control-btn">💾 Export Diff</button>
                 <button id="refreshDiff" class="control-btn">🔄 Refresh</button>
             </div>
@@ -277,13 +271,9 @@ export class DiffViewerService {
         return `
         <div class="file-tree">
             <h3>📂 Changed Files (${files.length})</h3>
-            <div class="file-tree-controls">
-                <button id="expandAll" class="tree-control-btn">Expand All</button>
-                <button id="collapseAll" class="tree-control-btn">Collapse All</button>
-            </div>
-            <ul class="file-tree-list">
+            <ul class="file-tree-list expanded">
                 ${files.map((file, index) => `
-                    <li class="file-item" data-file-index="${index}">
+                    <li class="file-item expanded" data-file-index="${index}">
                         <div class="file-item-content">
                             <span class="file-icon">${this.getFileIcon(file.newPath || file.oldPath)}</span>
                             <span class="file-name" title="${file.newPath || file.oldPath}">
@@ -428,18 +418,6 @@ export class DiffViewerService {
         context: vscode.ExtensionContext
     ): Promise<void> {
         switch (message.command) {
-            case 'toggleSplitView':
-                this.options.splitView = !this.options.splitView;
-                const diffData = this.processDiffData(reviewData.diff);
-                this.panel!.webview.html = this.generateDiffViewerHtml(reviewData, diffData, context);
-                break;
-            
-            case 'toggleLineNumbers':
-                this.options.showLineNumbers = !this.options.showLineNumbers;
-                const diffData2 = this.processDiffData(reviewData.diff);
-                this.panel!.webview.html = this.generateDiffViewerHtml(reviewData, diffData2, context);
-                break;
-            
             case 'exportDiff':
                 await this.exportDiffToFile(reviewData);
                 break;
@@ -938,14 +916,6 @@ export class DiffViewerService {
         });
 
         // Control buttons
-        document.getElementById('toggleSplitView')?.addEventListener('click', () => {
-            vscode.postMessage({ command: 'toggleSplitView' });
-        });
-
-        document.getElementById('toggleLineNumbers')?.addEventListener('click', () => {
-            vscode.postMessage({ command: 'toggleLineNumbers' });
-        });
-
         document.getElementById('exportDiff')?.addEventListener('click', () => {
             vscode.postMessage({ command: 'exportDiff' });
         });
@@ -954,17 +924,9 @@ export class DiffViewerService {
             vscode.postMessage({ command: 'refreshDiff' });
         });
 
-        // Tree controls
-        document.getElementById('expandAll')?.addEventListener('click', () => {
-            document.querySelectorAll('.file-diff').forEach(el => {
-                el.style.display = 'block';
-            });
-        });
-
-        document.getElementById('collapseAll')?.addEventListener('click', () => {
-            document.querySelectorAll('.file-diff').forEach((el, index) => {
-                if (index > 0) el.style.display = 'none';
-            });
+        // Auto-expand all files on load
+        document.querySelectorAll('.file-diff').forEach(el => {
+            el.style.display = 'block';
         });
 
         // Keyboard shortcuts
@@ -978,10 +940,6 @@ export class DiffViewerService {
                     case 'r':
                         e.preventDefault();
                         vscode.postMessage({ command: 'refreshDiff' });
-                        break;
-                    case 'l':
-                        e.preventDefault();
-                        vscode.postMessage({ command: 'toggleLineNumbers' });
                         break;
                 }
             }

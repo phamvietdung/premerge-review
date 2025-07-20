@@ -456,8 +456,11 @@ function App() {
     };
 
     const handleShowSettings = () => {
-        // Placeholder for settings functionality
-        vscode.postMessage({ type: 'showSettings' });
+        // Open VS Code settings for this extension
+        vscode.postMessage({ 
+            type: 'openSettings',
+            settingId: 'premergeReview'
+        });
     };
 
     if (isLoading) {
@@ -583,7 +586,7 @@ function App() {
                         onClick={handleShowSettings}
                         title="Extension settings and configuration"
                     >
-                        ⚙️ Settings (Comming Soon)
+                        ⚙️ Settings
                     </button>
                 </div>
             </div>

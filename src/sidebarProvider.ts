@@ -19,6 +19,34 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
         private readonly _extensionContext: vscode.ExtensionContext
     ) { }
 
+    /**
+     * Show information message with automatic timeout
+     */
+    private showInfoMessage(message: string, timeout: number = 10000): void {
+        const disposable = vscode.window.showInformationMessage(message);
+        setTimeout(() => {
+            if (disposable) {
+                disposable.then(selection => {
+                    // Auto-close after timeout
+                });
+            }
+        }, timeout);
+    }
+
+    /**
+     * Show error message with automatic timeout
+     */
+    private showErrorMessage(message: string, timeout: number = 10000): void {
+        const disposable = vscode.window.showErrorMessage(message);
+        setTimeout(() => {
+            if (disposable) {
+                disposable.then(selection => {
+                    // Auto-close after timeout
+                });
+            }
+        }, timeout);
+    }
+
     public resolveWebviewView(
         webviewView: vscode.WebviewView,
         context: vscode.WebviewViewResolveContext,
@@ -38,7 +66,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
         webviewView.webview.onDidReceiveMessage(async data => {
             switch (data.type) {
                 case 'buttonClicked':
-                    vscode.window.showInformationMessage('Button được nhấn từ Preact UI!');
+                    this.showInfoMessage('Button được nhấn từ Preact UI!');
                     break;
                 case 'requestBranchCommits':
                     // Send branch commits to webview
@@ -54,7 +82,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                         const { currentBranch, baseBranch, selectedCommit } = data.data;
                         
                         if (!currentBranch || (!baseBranch && !selectedCommit)) {
-                            vscode.window.showErrorMessage('Please select current branch and either base branch or commit');
+                            this.showErrorMessage('Please select current branch and either base branch or commit');
                             return;
                         }
 
@@ -124,11 +152,11 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                                                 const reviewData = reviewDataService.getReviewData();
                                                 if (reviewData) {
                                                     await diffViewerService.showDiffViewer(reviewData, this._extensionContext);
-                                                    vscode.window.showInformationMessage('📊 Diff viewer opened!');
+                                                    this.showInfoMessage('📊 Diff viewer opened!');
                                                 }
                                             } catch (error) {
                                                 console.error('Error showing diff viewer:', error);
-                                                vscode.window.showErrorMessage('Failed to show diff viewer');
+                                                this.showErrorMessage('Failed to show diff viewer');
                                             }
                                         }
                                     } else if (selection === 'Process Review') {
@@ -142,20 +170,20 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                                                 selectedCommit
                                             });
                                         } else {
-                                            vscode.window.showErrorMessage('Unable to initialize review service');
+                                            this.showErrorMessage('Unable to initialize review service');
                                         }
                                     }
                                 });
 
                             } catch (error) {
                                 console.error('Error creating review:', error);
-                                vscode.window.showErrorMessage(`Failed to create review: ${error instanceof Error ? error.message : 'Unknown error'}`);
+                                this.showErrorMessage(`Failed to create review: ${error instanceof Error ? error.message : 'Unknown error'}`);
                             }
                         });
 
                     } catch (error) {
                         console.error('Error in createReview handler:', error);
-                        vscode.window.showErrorMessage('Failed to create review');
+                        this.showErrorMessage('Failed to create review');
                     }
                     break;
                 case 'requestGitInfo':
@@ -174,7 +202,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                         type: 'gitInfo',
                         data: refreshedGitInfo
                     });
-                    vscode.window.showInformationMessage('Git branches refreshed!');
+                    this.showInfoMessage('Git branches refreshed!');
                     break;
                 case 'showDiffViewer':
                     try {
@@ -188,10 +216,10 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
 
                         const diffViewerService = DiffViewerService.getInstance();
                         await diffViewerService.showDiffViewer(reviewData, this._extensionContext);
-                        vscode.window.showInformationMessage('📊 Diff viewer opened!');
+                        this.showInfoMessage('📊 Diff viewer opened!');
                     } catch (error) {
                         console.error('Error showing diff viewer:', error);
-                        vscode.window.showErrorMessage('Failed to show diff viewer');
+                        this.showErrorMessage('Failed to show diff viewer');
                     }
                     break;
                 case 'processReview':
@@ -213,11 +241,11 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                                 selectedCommit: reviewData.selectedCommit
                             });
                         } else {
-                            vscode.window.showErrorMessage('Unable to initialize review service');
+                            this.showErrorMessage('Unable to initialize review service');
                         }
                     } catch (error) {
                         console.error('Error processing review:', error);
-                        vscode.window.showErrorMessage('Failed to process review');
+                        this.showErrorMessage('Failed to process review');
                     }
                     break;
                 case 'postToSlack':
@@ -246,12 +274,12 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                         ).then(selection => {
                             if (selection === 'Copy Message') {
                                 vscode.env.clipboard.writeText(slackMessage);
-                                vscode.window.showInformationMessage('Review summary copied to clipboard!');
+                                this.showInfoMessage('Review summary copied to clipboard!');
                             }
                         });
                     } catch (error) {
                         console.error('Error posting to Slack:', error);
-                        vscode.window.showErrorMessage('Failed to post to Slack');
+                        this.showErrorMessage('Failed to post to Slack');
                     }
                     break;
                 case 'showReviewResult':
@@ -271,7 +299,16 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                         
                     } catch (error) {
                         console.error('Error showing review result:', error);
-                        vscode.window.showErrorMessage('Failed to show review result');
+                        this.showErrorMessage('Failed to show review result');
+                    }
+                    break;
+                case 'openSettings':
+                    try {
+                        const settingId = data.settingId || 'premergeReview';
+                        await vscode.commands.executeCommand('workbench.action.openSettings', settingId);
+                    } catch (error) {
+                        console.error('Error opening settings:', error);
+                        this.showErrorMessage('Failed to open settings');
                     }
                     break;
                 case 'clearReviewData':
@@ -284,10 +321,10 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                             type: 'reviewDataCleared'
                         });
                         
-                        vscode.window.showInformationMessage('Review data cleared successfully!');
+                        this.showInfoMessage('Review data cleared successfully!');
                     } catch (error) {
                         console.error('Error clearing review data:', error);
-                        vscode.window.showErrorMessage('Failed to clear review data');
+                        this.showErrorMessage('Failed to clear review data');
                     }
                     break;
             }
@@ -317,7 +354,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
 
         } catch (error) {
             console.error('Error processing review:', error);
-            vscode.window.showErrorMessage(`Failed to process review: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            this.showErrorMessage(`Failed to process review: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
     }
 

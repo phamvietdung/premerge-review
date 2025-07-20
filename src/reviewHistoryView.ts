@@ -225,20 +225,30 @@ export class ReviewHistoryView {
         }
 
         const resultItems = reviewResults.map(result => {
-            const compareInfo = result.reviewData.selectedCommit 
-                ? `from commit ${result.reviewData.selectedCommit.substring(0, 8)}`
-                : `vs ${result.reviewData.baseBranch}`;
+            // Create better branch comparison display: source → target
+            // Always show current branch → target branch (not commit ID)
+            const branchDisplay = `${result.reviewData.currentBranch} → ${result.reviewData.baseBranch}`;
             
             const isMultiPart = result.reviewResults.isMultiPart;
             const partsInfo = isMultiPart && result.reviewResults.parts 
                 ? ` (${result.reviewResults.parts.length} parts)`
                 : '';
 
+            // Get file count - handle both array and number format
+            const fileCount = Array.isArray(result.reviewData.diffSummary.files) 
+                ? result.reviewData.diffSummary.files.length 
+                : result.reviewData.diffSummary.files || 0;
+
+            // Add commit info as subtitle if comparing from specific commit
+            const commitInfo = result.reviewData.selectedCommit 
+                ? `<div class="commit-info">📌 From commit: ${result.reviewData.selectedCommit.substring(0, 8)}</div>`
+                : '';
+
             return `
                 <div class="result-item">
                     <div class="result-header">
                         <div class="result-title">
-                            <strong>${result.reviewData.currentBranch}</strong> ${compareInfo}
+                            <strong>${branchDisplay}</strong>
                             ${isMultiPart ? '<span class="multi-part-badge">Multi-Part</span>' : ''}
                         </div>
                         <div class="result-meta">
@@ -246,11 +256,12 @@ export class ReviewHistoryView {
                             <span class="result-id">${result.id}</span>
                         </div>
                     </div>
+                    ${commitInfo}
                     <div class="result-summary">
                         ${result.reviewResults.summary}${partsInfo}
                     </div>
                     <div class="result-stats">
-                        <span class="stat">📁 ${result.reviewData.diffSummary.files} files</span>
+                        <span class="stat">📁 ${fileCount} files</span>
                         <span class="stat">➕ ${result.reviewData.diffSummary.insertions}</span>
                         <span class="stat">➖ ${result.reviewData.diffSummary.deletions}</span>
                     </div>
@@ -335,6 +346,12 @@ export class ReviewHistoryView {
             display: block;
             font-family: monospace;
             margin-top: 2px;
+        }
+        .commit-info {
+            font-size: 11px;
+            color: var(--vscode-descriptionForeground);
+            margin: 4px 0;
+            font-style: italic;
         }
         .result-summary {
             margin: 8px 0;
