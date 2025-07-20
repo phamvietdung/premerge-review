@@ -1,18 +1,42 @@
 {
   "name": "premerge-review",
   "displayName": "PreMerge Review",
-  "description": "AI-assisted code review before merging with visual diff viewer and Slack integration",
-  "version": "0.1.0",
+  "description": "AI-assisted code review before merging with visual diff viewer, GitHub Copilot integration, and Slack notifications",
+  "version": "1.0.0",
   "publisher": "phamvietdung",
+  "icon": "media/icon.png",
   "repository": {
     "type": "git",
     "url": "https://github.com/phamvietdung/premerge-review.git"
+  },
+  "bugs": {
+    "url": "https://github.com/phamvietdung/premerge-review/issues"
+  },
+  "homepage": "https://github.com/phamvietdung/premerge-review#readme",
+  "keywords": [
+    "code review",
+    "git",
+    "diff",
+    "ai",
+    "copilot",
+    "github",
+    "slack",
+    "merge",
+    "premerge",
+    "quality"
+  ],
+  "galleryBanner": {
+    "color": "#1e1e1e",
+    "theme": "dark"
   },
   "engines": {
     "vscode": "^1.102.0"
   },
   "categories": [
-    "Other"
+    "Other",
+    "Machine Learning",
+    "Linters",
+    "SCM Providers"
   ],
   "main": "./out/extension.js",
   "contributes": {
