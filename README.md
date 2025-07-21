@@ -6,7 +6,7 @@
 
 ## Demo
 
-[App Demo](./media/simple_flow.gif)
+![App Demo](./media/simple_flow.gif)
 
 
 ---
