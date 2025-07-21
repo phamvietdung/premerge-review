@@ -4,6 +4,11 @@
 
 **PreMerge Review** is a Visual Studio Code extension that helps developers perform AI-assisted code reviews _before_ merging their feature branches. It generates a smart review prompt from the Git diff between branches, optionally using your team's custom review instructions.
 
+## Demo
+
+[App Demo](./media/simple_flow.gif)
+
+
 ---
 
 ## 🚀 Features
@@ -34,21 +39,6 @@
    - Click **Show Details** to open the **Visual Diff Viewer**
    - Click **Process Review** to get AI feedback via Copilot
    - Click **Post to Slack** to share results with your team
-
-### Visual Diff Viewer
-
-The diff viewer provides a comprehensive view of code changes:
-
-- **📂 File Tree**: Navigate through changed files easily
-- **🔢 Line Numbers**: Toggle line numbers on/off
-- **📋 View Modes**: Switch between unified and split view
-- **🎨 Syntax Highlighting**: Color-coded additions, deletions, and context
-- **⌨️ Keyboard Shortcuts**: 
-  - `Ctrl+S`: Export diff
-  - `Ctrl+R`: Refresh viewer
-  - `Ctrl+L`: Toggle line numbers
-  - `Arrow Keys`: Navigate between files
-- **💾 Export**: Save diff to `.diff` or `.patch` files
 
 ### Commands Available
 
@@ -85,20 +75,6 @@ Configure the extension via VS Code settings (`Ctrl+,` → search "premerge"):
 }
 ```
 
-### Slack Integration Setup
-
-1. Create a Slack Incoming Webhook:
-   - Go to your Slack workspace settings
-   - Navigate to **Apps** → **Incoming Webhooks**
-   - Create a new webhook for your desired channel
-   - Copy the webhook URL
-
-2. Configure in VS Code:
-   - Open Settings (`Ctrl+,`)
-   - Search for "premergeReview.slack"
-   - Paste your webhook URL
-   - Test connection using `PreMerge Review: Test Slack Connection`
-
 ### Review Instructions
 
 Create instruction files to guide the AI review process:
@@ -129,25 +105,6 @@ Create instruction files to guide the AI review process:
 
 ---
 
-## 🎯 Use Cases
-
-### 1. **Pre-PR Review**
-Review your changes before creating a pull request to catch issues early.
-
-### 2. **Feature Branch Validation**
-Validate feature branches against development branch before merging.
-
-### 3. **Code Quality Assurance**
-Use AI assistance to maintain consistent code quality across your team.
-
-### 4. **Documentation Review**
-Ensure proper documentation and comments accompany code changes.
-
-### 5. **Security Review**
-Get AI assistance in identifying potential security vulnerabilities.
-
----
-
 ## 🔧 Technical Requirements
 
 ### Essential Requirements
@@ -175,77 +132,6 @@ Get AI assistance in identifying potential security vulnerabilities.
 3. **Verify Setup**: Check that Copilot is active in VS Code status bar
 
 ⚠️ **Important**: Without GitHub Copilot extension, the AI review functionality will not work. The extension will show error messages when trying to process reviews.
-
----
-
-## 🎨 Visual Features
-
-### Diff Viewer Interface
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│ 🔍 Code Review - Diff Viewer                               │
-├─────────────────────────────────────────────────────────────┤
-│ feature-branch compared to main                             │
-│ 📊 3 files changed  +45 lines  -12 lines                  │
-│                                                             │
-│ [📄 Unified View] [🔢 Show Numbers] [💾 Export] [🔄 Refresh] │
-├──────────────┬──────────────────────────────────────────────┤
-│ 📂 Files (3) │ file-content.ts                              │
-│ ├─ 📘 src/   │ ┌─────────────────────────────────────────┐  │
-│ │  ├─ file1  │ │ @@ -15,7 +15,8 @@ function example() │  │
-│ │  └─ file2  │ │ - const old = 'value';                  │  │
-│ └─ 📋 test/  │ │ + const new = 'updated';                │  │
-│    └─ file3  │ │ + const extra = 'added';                │  │
-│              │ └─────────────────────────────────────────┘  │
-└──────────────┴──────────────────────────────────────────────┘
-```
-
-### Key Visual Elements
-
-- **🎨 Color Coding**: Green for additions, red for deletions
-- **📂 File Navigation**: Expandable file tree with icons
-- **🔢 Line Numbers**: Optional line number display
-- **📋 Context Lines**: Show surrounding code for better understanding
-- **🏷️ File Badges**: NEW, DELETED, BINARY file indicators
-
----
-
-## 🚦 Getting Started
-
-### Prerequisites Setup
-
-⚠️ **Before using AI review features, ensure GitHub Copilot is installed and active:**
-
-1. **Install GitHub Copilot Extension**:
-   - Open VS Code Extensions (`Ctrl+Shift+X`)
-   - Search for "GitHub Copilot"
-   - Install the official extension by GitHub
-   
-2. **Sign in and activate**:
-   - Follow the sign-in prompts
-   - Ensure you have a valid GitHub Copilot subscription
-   - Check that Copilot is active (icon in status bar)
-
-### Quick Start
-
-1. **Install PreMerge Review Extension**: Install from VS Code marketplace
-2. **Open Git Project**: Open any project with Git repository
-3. **Verify Copilot**: Ensure GitHub Copilot extension is active
-4. **Access Sidebar**: Look for the PreMerge Review icon in the activity bar
-5. **Create First Review**: Select branches and click "Create Review"
-6. **Process with AI**: Click "Process Review" for Copilot analysis
-7. **Explore Diff**: Click "Show Details" to open the visual diff viewer
-
-### Keyboard Shortcuts
-
-| Shortcut | Action |
-|----------|--------|
-| `Ctrl+Shift+P` → "PreMerge" | Open command palette with extension commands |
-| `Ctrl+S` (in diff viewer) | Export current diff |
-| `Ctrl+R` (in diff viewer) | Refresh diff viewer |
-| `Ctrl+L` (in diff viewer) | Toggle line numbers |
-| `↑` / `↓` (in diff viewer) | Navigate between files |
 
 ---
 
