@@ -32,6 +32,9 @@
   "engines": {
     "vscode": "^1.102.0"
   },
+  "activationEvents": [
+    "*"
+  ],
   "categories": [
     "Other",
     "Machine Learning",
@@ -65,6 +68,16 @@
       {
         "command": "premerge-review.testSlackConnection",
         "title": "Test Slack Connection"
+      },
+      {
+        "command": "premerge-review.testLanguageModels",
+        "title": "Test Language Models API",
+        "category": "PreMerge Review"
+      },
+      {
+        "command": "premerge-review.validateAllModels",
+        "title": "Validate All AI Models",
+        "category": "PreMerge Review"
       },
       {
         "command": "premerge-review.showDiffViewer",

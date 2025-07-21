@@ -94,6 +94,196 @@ export function activate(context: vscode.ExtensionContext) {
 		await slackService.testSlackConnection();
 	});
 
+	// Register test language models command
+	const testLanguageModelsCommand = vscode.commands.registerCommand('premerge-review.testLanguageModels', async () => {
+		try {
+			vscode.window.showInformationMessage('Testing Language Models API...');
+			
+			// Check if the API exists
+			if (!vscode.lm || !vscode.lm.selectChatModels) {
+				vscode.window.showErrorMessage('Language Model API is not available in this VS Code version. Please update VS Code to version 1.90+');
+				return;
+			}
+
+			console.log('Testing vscode.lm.selectChatModels()...');
+			const models = await vscode.lm.selectChatModels();
+			
+			if (!models || models.length === 0) {
+				vscode.window.showWarningMessage(
+					'No AI chat models are currently available. Please ensure GitHub Copilot is installed and you are signed in.',
+					'Install Copilot',
+					'Sign in to Copilot'
+				).then(selection => {
+					if (selection === 'Install Copilot') {
+						vscode.commands.executeCommand('workbench.extensions.search', 'GitHub.copilot');
+					} else if (selection === 'Sign in to Copilot') {
+						vscode.commands.executeCommand('github.copilot.signIn');
+					}
+				});
+				return;
+			}
+
+			// Show available models
+			const modelNames = models.map(model => `${model.name || model.id} (${model.vendor}/${model.family})`);
+			const modelList = modelNames.join('\n• ');
+			
+			vscode.window.showInformationMessage(
+				`Found ${models.length} AI models:\n• ${modelList}`,
+				{ modal: true }
+			);
+
+			console.log('Available models:', models.map(m => ({
+				id: m.id,
+				name: m.name,
+				vendor: m.vendor,
+				family: m.family,
+				maxTokens: m.maxInputTokens
+			})));
+
+		} catch (error) {
+			console.error('Error testing language models:', error);
+			const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+			vscode.window.showErrorMessage(`Failed to test Language Models API: ${errorMessage}`);
+		}
+	});
+
+	// Register validate all models command  
+	const validateAllModelsCommand = vscode.commands.registerCommand('premerge-review.validateAllModels', async () => {
+		try {
+			vscode.window.showInformationMessage('Validating all AI models...');
+			console.log('=== Validating All AI Models ===');
+			
+			// Check if API exists
+			if (!vscode.lm || !vscode.lm.selectChatModels) {
+				const message = 'Language Model API is not available in this VS Code version';
+				console.error(message);
+				vscode.window.showErrorMessage(message);
+				return;
+			}
+			
+			// Get all available models
+			const allModels = await vscode.lm.selectChatModels();
+			console.log(`Found ${allModels.length} models to validate`);
+			
+			if (!allModels || allModels.length === 0) {
+				vscode.window.showWarningMessage('No AI models available to validate');
+				return;
+			}
+			
+			// Validate each model with actual test requests
+			const validationResults: Array<{
+				model: string;
+				id: string;
+				vendor: string;
+				family: string;
+				status: 'available' | 'error';
+				responseLength: number;
+				error: string | null;
+			}> = [];
+			let validatedCount = 0;
+			
+			await vscode.window.withProgress(
+				{
+					location: vscode.ProgressLocation.Notification,
+					title: `Validating ${allModels.length} AI models...`,
+					cancellable: true,
+				},
+				async (progress, token) => {
+					for (let i = 0; i < allModels.length; i++) {
+						if (token.isCancellationRequested) {
+							break;
+						}
+						
+						const model = allModels[i];
+						const modelName = model.name || model.id;
+						
+						progress.report({
+							increment: (100 / allModels.length),
+							message: `Testing ${modelName}...`,
+						});
+						
+						console.log(`Validating model ${i + 1}/${allModels.length}: ${modelName}`);
+						
+						try {
+							// Test with a simple request
+							const testMessages = [vscode.LanguageModelChatMessage.User("Hello")];
+							const testResponse = await Promise.race([
+								model.sendRequest(testMessages, {}, token),
+								new Promise<never>((_, reject) => {
+									setTimeout(() => reject(new Error('Timeout')), 10000);
+								})
+							]);
+							
+							// Try to consume response
+							let responseText = '';
+							for await (const chunk of testResponse.stream) {
+								responseText += (chunk as any).value || '';
+								if (responseText.length > 50) break; // Just need a small response
+							}
+							
+							validationResults.push({
+								model: modelName,
+								id: model.id,
+								vendor: model.vendor,
+								family: model.family,
+								status: 'available',
+								responseLength: responseText.length,
+								error: null
+							});
+							
+							validatedCount++;
+							console.log(`✅ ${modelName}: Available (response: ${responseText.length} chars)`);
+							
+						} catch (error) {
+							const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+							validationResults.push({
+								model: modelName,
+								id: model.id,
+								vendor: model.vendor,
+								family: model.family,
+								status: 'error',
+								responseLength: 0,
+								error: errorMessage
+							});
+							
+							console.log(`❌ ${modelName}: ${errorMessage}`);
+						}
+					}
+				}
+			);
+			
+			// Show results
+			const availableModels = validationResults.filter(r => r.status === 'available');
+			const errorModels = validationResults.filter(r => r.status === 'error');
+			
+			const resultMessage = `Validation Complete:\n✅ ${availableModels.length} models available\n❌ ${errorModels.length} models with errors`;
+			
+			console.log('=== Validation Results ===');
+			console.log('Available models:', availableModels.map(m => m.model));
+			console.log('Error models:', errorModels.map(m => `${m.model}: ${m.error}`));
+			
+			if (errorModels.length > 0) {
+				const errorDetails = errorModels.map(m => `• ${m.model}: ${m.error}`).join('\n');
+				vscode.window.showWarningMessage(
+					`${resultMessage}\n\nErrors:\n${errorDetails}`,
+					{ modal: true },
+					'View Console'
+				).then(selection => {
+					if (selection === 'View Console') {
+						vscode.commands.executeCommand('workbench.action.toggleDevTools');
+					}
+				});
+			} else {
+				vscode.window.showInformationMessage(resultMessage);
+			}
+			
+		} catch (error) {
+			const errorMessage = `Model validation failed: ${error instanceof Error ? error.message : 'Unknown error'}`;
+			console.error(errorMessage, error);
+			vscode.window.showErrorMessage(errorMessage);
+		}
+	});
+
 	// Register diff viewer command
 	const showDiffViewerCommand = vscode.commands.registerCommand('premerge-review.showDiffViewer', async () => {
 		try {
@@ -195,6 +385,8 @@ export function activate(context: vscode.ExtensionContext) {
 		refreshGitCommand, 
 		showReviewDataCommand, 
 		testSlackCommand,
+		testLanguageModelsCommand,
+		validateAllModelsCommand,
 		showDiffViewerCommand,
 		exportDiffCommand,
 		showReviewHistoryCommand,

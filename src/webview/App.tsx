@@ -5,6 +5,16 @@ declare global {
     function acquireVsCodeApi(): any;
 }
 
+interface ChatModel {
+    id: string;
+    name: string;
+    vendor: string;
+    family: string;
+    version: string;
+    maxInputTokens: number;
+    displayName: string;
+}
+
 const vscode = acquireVsCodeApi();
 
 function SearchableSelect({ options, value, onChange, placeholder = "Select..." }) {
@@ -345,7 +355,9 @@ function App() {
     const [currentBranch, setCurrentBranch] = useState('');
     const [baseBranch, setBaseBranch] = useState('');
     const [selectedCommit, setSelectedCommit] = useState('');
+    const [selectedModel, setSelectedModel] = useState('');
     const [commits, setCommits] = useState([]);
+    const [chatModels, setChatModels] = useState<ChatModel[]>([]);
     const [gitInfo, setGitInfo] = useState({
         currentBranch: '',
         allBranches: [],
@@ -354,11 +366,15 @@ function App() {
     });
     const [isLoading, setIsLoading] = useState(true);
     const [loadingCommits, setLoadingCommits] = useState(false);
+    const [loadingModels, setLoadingModels] = useState(false);
+    const [modelsError, setModelsError] = useState<string | null>(null);
+    const [showManualRefresh, setShowManualRefresh] = useState(false);
 
     // Request git info when component mounts
     useEffect(() => {
-        // Request git info from extension
+        // Request git info and chat models from extension
         vscode.postMessage({ type: 'requestGitInfo' });
+        vscode.postMessage({ type: 'requestChatModels' });
 
         // Listen for git info response
         const handleMessage = (event) => {
@@ -375,6 +391,26 @@ function App() {
                 ) || '';
                 setBaseBranch(defaultBase);
                 setIsLoading(false);
+            } else if (message.type === 'chatModels') {
+                setChatModels(message.data);
+                // Handle error if present
+                if (message.error) {
+                    setModelsError(message.error);
+                    setShowManualRefresh(true);
+                } else {
+                    setModelsError(null);
+                    setShowManualRefresh(false);
+                    // Set default model (prefer GPT-4o if available)
+                    const defaultModel = message.data.find((model: ChatModel) => 
+                        model.family === 'gpt-4o' || model.id === 'gpt-4o'
+                    ) || message.data[0];
+                    if (defaultModel) {
+                        setSelectedModel(defaultModel.id);
+                    }
+                }
+                setLoadingModels(false);
+            } else if (message.type === 'showManualRefresh') {
+                setShowManualRefresh(true);
             } else if (message.type === 'branchCommits') {
                 console.log('Received commits for branch:', message.data.branchName);
                 console.log('Received commits for branch:', message.data.commits);
@@ -438,17 +474,24 @@ function App() {
         : fallbackBaseBranchOptions;
 
     const handleCreateReview = () => {
-        console.log({ currentBranch, baseBranch, selectedCommit });
+        console.log({ currentBranch, baseBranch, selectedCommit, selectedModel });
         // Gửi message tới extension
         vscode.postMessage({
             type: 'createReview',
-            data: { currentBranch, baseBranch, selectedCommit }
+            data: { currentBranch, baseBranch, selectedCommit, selectedModel }
         });
     };
 
     const handleRefreshGit = () => {
         setIsLoading(true);
         vscode.postMessage({ type: 'refreshGit' });
+    };
+
+    const handleRefreshModels = () => {
+        setLoadingModels(true);
+        setModelsError(null);
+        setShowManualRefresh(false);
+        vscode.postMessage({ type: 'refreshChatModels' });
     };
 
     const handleShowReviewResult = () => {
@@ -556,12 +599,54 @@ function App() {
                 placeholder="Select target branch..."
             />
 
+            {/* Chat Model Selection */}
+            <label style={{ ...styles.label, marginTop: '1rem' } as any}>
+                AI Model for Review {loadingModels ? '(Loading...)' : `(${chatModels.length} models available)`}
+            </label>
+            
+            {modelsError && (
+                <div style={styles.warning as any}>
+                    ⚠️ Failed to load AI models: {modelsError}
+                </div>
+            )}
+            
+            {showManualRefresh && (
+                <button 
+                    style={{
+                        ...styles.button,
+                        backgroundColor: '#f59e0b',
+                        marginBottom: '0.5rem'
+                    } as any} 
+                    onClick={handleRefreshModels}
+                    disabled={loadingModels}
+                >
+                    {loadingModels ? 'Refreshing...' : '🔄 Manual Refresh AI Models'}
+                </button>
+            )}
+            
+            {!loadingModels && chatModels.length > 0 && (
+                <SearchableSelect
+                    options={chatModels.map((model: ChatModel) => model.displayName)}
+                    value={chatModels.find((model: ChatModel) => model.id === selectedModel)?.displayName || ''}
+                    onChange={(displayName) => {
+                        const model = chatModels.find((m: ChatModel) => m.displayName === displayName);
+                        if (model) setSelectedModel(model.id);
+                    }}
+                    placeholder="Select AI model for code review..."
+                />
+            )}
+            {!loadingModels && chatModels.length === 0 && !showManualRefresh && (
+                <div style={styles.warning as any}>
+                    ⚠️ No AI models available. Using default GPT-4o.
+                </div>
+            )}
+
             <button 
                 style={styles.button as any} 
                 onClick={handleCreateReview}
-                disabled={!currentBranch || (!baseBranch && !selectedCommit)}
+                disabled={!currentBranch || (!baseBranch && !selectedCommit) || !selectedModel}
             >
-                Create Review {selectedCommit ? `(from commit ${selectedCommit.substring(0, 8)})` : `(from ${baseBranch})`}
+                Create Review {selectedCommit ? `(from commit ${selectedCommit.substring(0, 8)})` : `(from ${baseBranch})`} with {chatModels.find((model: any) => model.id === selectedModel)?.name || 'AI'}
             </button>
 
             {/* Review Actions Section */}

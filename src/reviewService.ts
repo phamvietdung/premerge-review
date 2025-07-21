@@ -187,7 +187,13 @@ export class ReviewService {
         };
 
         // Send review request and get result
-        const reviewResult = await SendReviewDiffChangeRequest(combineInstructionContent, reviewData.diff, auditContext, context);
+        const reviewResult = await SendReviewDiffChangeRequest(
+            combineInstructionContent, 
+            reviewData.diff, 
+            auditContext, 
+            context,
+            reviewData.selectedModel
+        );
         
         // Prepare result data
         const resultData = {
