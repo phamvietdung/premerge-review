@@ -540,19 +540,21 @@ function App() {
             {/* Intelligent Routing Info */}
             {intelligentRoutingEnabled ? (
                 <div style={styles.intelligentRoutingInfo as any}>
-                    <span>🎯</span>
+                    {/* <span>🎯</span> */}
                     <div>
-                        <strong>Intelligent Routing Enabled</strong><br />
-                        AI will analyze your changes and automatically select relevant instructions from: <code>{instructionFolderPath}</code>
+                        <strong>Intelligent Routing Enabled</strong>
+                        {/* <br /> */}
+                        {/* AI will analyze your changes and automatically select relevant instructions from: <code>{instructionFolderPath}</code> */}
                     </div>
                 </div>
             ) : (
                 <div style={styles.intelligentRoutingWarning as any}>
-                    <span>⚠️</span>
+                    {/* <span>⚠️</span> */}
                     <div>
-                        <strong>Traditional Instructions Mode</strong><br />
-                        Using all available instructions. Enable intelligent routing in settings for AI-powered instruction selection.
-                        <br /><em>Note: Intelligent routing uses additional AI requests.</em>
+                        <strong>Traditional Instructions Mode</strong>
+                        {/* <br /> */}
+                        {/* Using all available instructions. Enable intelligent routing in settings for AI-powered instruction selection.
+                        <br /><em>Note: Intelligent routing uses additional AI requests.</em> */}
                     </div>
                 </div>
             )}
