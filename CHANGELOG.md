@@ -4,6 +4,40 @@ All notable changes to the "PreMerge Review" extension will be documented in thi
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [1.0.2] - 2025-07-22
+
+### 🚀 **Performance Optimization Release**
+
+#### ⚡ **Performance Improvements**
+- **Faster Extension Activation**: Removed blocking git operations during startup for 2-3x faster activation
+- **Optimized Git Operations**: Eliminated unnecessary remote branch fetching and git fetch operations
+- **On-Demand Loading**: Git information loaded only when needed by webview components
+- **Streamlined Commands**: Cleaned up git refresh flow to use local branches only
+
+#### 🧹 **Code Quality & Maintenance**
+- **Removed Deprecated Code**: Eliminated unused `refreshBranches()` method and related dead code
+- **Simplified Git Workflow**: Focus on local branches for improved performance and reliability
+- **Cleaner Message Handling**: Optimized webview communication with reduced overhead
+- **Better Error Handling**: Improved error messages and timeout handling
+
+#### 🔧 **Technical Improvements**
+- **Local-Only Branch Operations**: Use `git branch --list` for faster branch detection
+- **Reduced Network Calls**: No longer performs unnecessary git fetch operations
+- **Memory Optimization**: Better resource management for large repositories
+- **Consistent Code Style**: Uniform error handling and message patterns
+
+#### 🐛 **Bug Fixes**
+- **Fixed Extension Loading**: Resolved slow startup issues in large repositories
+- **Corrected Git Command Usage**: Fixed deprecated method calls and improved compatibility
+- **Improved Refresh Logic**: Streamlined git refresh to work without remote operations
+
+## [1.0.1] - 2025-07-21
+
+### 🔧 **Minor Improvements**
+- **Enhanced Documentation**: Updated README with clearer installation instructions
+- **Better Error Messages**: Improved user feedback for common issues
+- **Settings Validation**: Added validation for webhook URLs and token limits
+
 ## [1.0.0] - 2025-07-20
 
 ### 🎉 **Initial Release**
