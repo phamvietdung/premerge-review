@@ -263,6 +263,31 @@ const styles = {
         fontSize: '0.8rem',
         cursor: 'pointer',
     },
+    // Intelligent routing info
+    intelligentRoutingInfo: {
+        backgroundColor: '#2a4a2a',
+        color: '#4ade80',
+        padding: '0.75rem',
+        borderRadius: '4px',
+        fontSize: '0.85rem',
+        marginBottom: '1rem',
+        border: '1px solid #22c55e',
+        display: 'flex',
+        alignItems: 'flex-start',
+        gap: '0.5rem',
+    },
+    intelligentRoutingWarning: {
+        backgroundColor: '#4d3319',
+        color: '#fbbf24',
+        padding: '0.75rem',
+        borderRadius: '4px',
+        fontSize: '0.85rem',
+        marginBottom: '1rem',
+        border: '1px solid #f59e0b',
+        display: 'flex',
+        alignItems: 'flex-start',
+        gap: '0.5rem',
+    },
     // Review actions section
     reviewSection: {
         position:'absolute',
@@ -369,12 +394,15 @@ function App() {
     const [loadingModels, setLoadingModels] = useState(false);
     const [modelsError, setModelsError] = useState<string | null>(null);
     const [showManualRefresh, setShowManualRefresh] = useState(false);
+    const [intelligentRoutingEnabled, setIntelligentRoutingEnabled] = useState(false);
+    const [instructionFolderPath, setInstructionFolderPath] = useState('.github/instructions');
 
     // Request git info when component mounts
     useEffect(() => {
         // Request git info and chat models from extension
         vscode.postMessage({ type: 'requestGitInfo' });
         vscode.postMessage({ type: 'requestChatModels' });
+        vscode.postMessage({ type: 'requestSettings' });
 
         // Listen for git info response
         const handleMessage = (event) => {
@@ -411,6 +439,9 @@ function App() {
                 setLoadingModels(false);
             } else if (message.type === 'showManualRefresh') {
                 setShowManualRefresh(true);
+            } else if (message.type === 'settings') {
+                setIntelligentRoutingEnabled(message.data.intelligentRoutingEnabled);
+                setInstructionFolderPath(message.data.instructionFolderPath);
             } else if (message.type === 'branchCommits') {
                 console.log('Received commits for branch:', message.data.branchName);
                 console.log('Received commits for branch:', message.data.commits);
@@ -546,6 +577,28 @@ function App() {
             {!gitInfo.isGitRepo && (
                 <div style={styles.warning as any}>
                     ⚠️ Not a Git repository. Using sample data.
+                </div>
+            )}
+
+            {/* Intelligent Routing Info */}
+            {intelligentRoutingEnabled ? (
+                <div style={styles.intelligentRoutingInfo as any}>
+                    {/* <span>🎯</span> */}
+                    <div>
+                        <strong>Intelligent Routing Enabled</strong>
+                        {/* <br /> */}
+                        {/* AI will analyze your changes and automatically select relevant instructions from: <code>{instructionFolderPath}</code> */}
+                    </div>
+                </div>
+            ) : (
+                <div style={styles.intelligentRoutingWarning as any}>
+                    {/* <span>⚠️</span> */}
+                    <div>
+                        <strong>Traditional Instructions Mode</strong>
+                        {/* <br /> */}
+                        {/* Using all available instructions. Enable intelligent routing in settings for AI-powered instruction selection.
+                        <br /><em>Note: Intelligent routing uses additional AI requests.</em> */}
+                    </div>
                 </div>
             )}
 

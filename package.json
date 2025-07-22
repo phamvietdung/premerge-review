@@ -149,6 +149,18 @@
           "maximum": 32000,
           "description": "Maximum number of tokens per part when splitting large diffs for review. Smaller values use less tokens but require more API calls.",
           "scope": "resource"
+        },
+        "premergeReview.intelligentRouting.enabled": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Enable intelligent instruction routing using AI to automatically select relevant instructions based on code changes. ⚠️ **Warning:** This feature will use additional AI requests to analyze and route instructions, which may increase usage costs.",
+          "scope": "resource"
+        },
+        "premergeReview.intelligentRouting.instructionFolderPath": {
+          "type": "string",
+          "default": ".github/instructions",
+          "description": "Folder path containing instruction files for intelligent routing. All .md files in this folder will be scanned and indexed for AI-based instruction selection.",
+          "scope": "resource"
         }
       }
     }

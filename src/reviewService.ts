@@ -7,6 +7,7 @@ import { DiffViewerService } from './diffViewerService';
 import { SlackService } from './slackService';
 import { ReviewResultService } from './reviewResultService';
 import { ReviewHistoryView } from './reviewHistoryView';
+import { IntelligentRoutingService } from './intelligentRoutingService';
 
 // Interface for review processing parameters
 export interface ReviewProcessParams {
@@ -167,10 +168,78 @@ export class ReviewService {
     }
 
     /**
-     * Generate review feedback (placeholder for AI integration)
+     * Generate review feedback with intelligent instruction routing
      */
     private async generateReviewFeedback(reviewData: ReviewData, instructions: InstructionFile[], context: vscode.ExtensionContext): Promise<any> {
-        var combineInstructionContent = instructions.filter(i => i.exists).map(i => i.content).join('\n\n');
+        const intelligentRouting = IntelligentRoutingService.getInstance(this.workspaceRoot);
+        
+        let combineInstructionContent: string;
+        let instructionsUsedInfo: string;
+        
+        // Check if intelligent routing is enabled
+        if (intelligentRouting.isIntelligentRoutingEnabled()) {
+            console.log('🎯 Using intelligent instruction routing...');
+            
+            try {
+                // Step 1: Create instruction index
+                const instructionIndex = await intelligentRouting.createInstructionIndex();
+                
+                if (instructionIndex.length === 0) {
+                    console.log('⚠️ No instruction files found in routing folder, falling back to traditional method');
+                    combineInstructionContent = instructions.filter(i => i.exists).map(i => i.content).join('\n\n');
+                    instructionsUsedInfo = `Traditional instructions (${instructions.filter(i => i.exists).length} files)`;
+                } else {
+                    // Step 2: Get routing decision from AI
+                    const changedFiles = reviewData.diffSummary.files;
+                    const routingDecision = await intelligentRouting.getInstructionRouting(
+                        reviewData.diff.substring(0, 2000), // Summary for routing
+                        changedFiles,
+                        instructionIndex
+                    );
+                    
+                    // Step 3: Select instructions based on routing
+                    const selectedInstructions = intelligentRouting.selectInstructionsByRouting(
+                        instructionIndex,
+                        routingDecision
+                    );
+                    
+                    // Step 4: Combine selected instruction content
+                    if (selectedInstructions.length > 0) {
+                        combineInstructionContent = intelligentRouting.combineInstructionContent(selectedInstructions);
+                        instructionsUsedInfo = `Intelligent routing (${selectedInstructions.length}/${instructionIndex.length} selected): ${selectedInstructions.map(i => i.filename).join(', ')}`;
+                        
+                        // Show routing info to user
+                        vscode.window.showInformationMessage(
+                            `🎯 AI selected ${selectedInstructions.length} relevant instructions based on your code changes`,
+                            'Show Details'
+                        ).then(selection => {
+                            if (selection === 'Show Details') {
+                                vscode.window.showInformationMessage(
+                                    `Routing Decision:\n${routingDecision.reasoning}\n\nConfidence: ${(routingDecision.confidence * 100).toFixed(1)}%`
+                                );
+                            }
+                        });
+                    } else {
+                        console.log('⚠️ No instructions selected by routing, falling back to traditional method');
+                        combineInstructionContent = instructions.filter(i => i.exists).map(i => i.content).join('\n\n');
+                        instructionsUsedInfo = `Fallback to traditional instructions (${instructions.filter(i => i.exists).length} files)`;
+                    }
+                }
+                
+            } catch (error) {
+                console.error('Error during intelligent routing:', error);
+                vscode.window.showWarningMessage(
+                    `Intelligent routing failed: ${error instanceof Error ? error.message : 'Unknown error'}. Using traditional instructions.`
+                );
+                combineInstructionContent = instructions.filter(i => i.exists).map(i => i.content).join('\n\n');
+                instructionsUsedInfo = `Traditional instructions (routing failed)`;
+            }
+            
+        } else {
+            // Traditional method: use all instructions
+            combineInstructionContent = instructions.filter(i => i.exists).map(i => i.content).join('\n\n');
+            instructionsUsedInfo = `Traditional instructions (${instructions.filter(i => i.exists).length} files)`;
+        }
 
         // Create audit context
         const auditContext: AuditContext = {
@@ -198,8 +267,7 @@ export class ReviewService {
         // Prepare result data
         const resultData = {
             summary: `Review completed for ${reviewData.diffSummary.files.length} files`,
-            instructionsUsed: instructions.filter(i => i.exists).length > 0 ? 
-                instructions.filter(i => i.exists).map(i => i.path).join(', ') : 'Default instructions',
+            instructionsUsed: instructionsUsedInfo,
             content: reviewResult || 'No review content generated',
             isMultiPart: false
         };

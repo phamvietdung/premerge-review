@@ -232,9 +232,20 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                         });
                     }
                     break;
+                case 'requestSettings':
+                    // Send extension settings to webview
+                    const config = vscode.workspace.getConfiguration('premergeReview');
+                    const settings = {
+                        intelligentRoutingEnabled: config.get<boolean>('intelligentRouting.enabled', false),
+                        instructionFolderPath: config.get<string>('intelligentRouting.instructionFolderPath', '.github/instructions')
+                    };
+                    webviewView.webview.postMessage({
+                        type: 'settings',
+                        data: settings
+                    });
+                    break;
                 case 'refreshGit':
-                    // Refresh git info and send to webview
-                    await this._gitService.refreshBranches();
+                    // Simply re-request git info (branches may have changed)
                     const refreshedGitInfo = await this._gitService.getGitInfo();
                     webviewView.webview.postMessage({
                         type: 'gitInfo',
