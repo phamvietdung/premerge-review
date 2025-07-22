@@ -4,6 +4,7 @@ export interface ReviewData {
     currentBranch: string;
     baseBranch: string;
     selectedCommit?: string; // Optional commit hash to compare from
+    selectedModel?: string; // Optional chat model to use for review
     diff: string;
     diffSummary: {
         files: string[];

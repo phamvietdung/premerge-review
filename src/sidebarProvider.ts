@@ -79,7 +79,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                     break;
                 case 'createReview':
                     try {
-                        const { currentBranch, baseBranch, selectedCommit } = data.data;
+                        const { currentBranch, baseBranch, selectedCommit, selectedModel } = data.data;
                         
                         if (!currentBranch || (!baseBranch && !selectedCommit)) {
                             this.showErrorMessage('Please select current branch and either base branch or commit');
@@ -114,6 +114,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                                     currentBranch,
                                     baseBranch,
                                     selectedCommit,
+                                    selectedModel: selectedModel || 'gpt-4o', // Default fallback
                                     diff: diffSummary.diff,
                                     diffSummary: {
                                         files: diffSummary.files,
@@ -193,6 +194,43 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                         type: 'gitInfo',
                         data: gitInfo
                     });
+                    break;
+                case 'requestChatModels':
+                    // Send available chat models to webview
+                    try {
+                        const chatModels = await this.getAvailableChatModels();
+                        webviewView.webview.postMessage({
+                            type: 'chatModels',
+                            data: chatModels
+                        });
+                    } catch (error) {
+                        console.error('Error getting chat models:', error);
+                        webviewView.webview.postMessage({
+                            type: 'chatModels',
+                            data: [],
+                            error: error instanceof Error ? error.message : 'Unknown error'
+                        });
+                    }
+                    break;
+                case 'refreshChatModels':
+                    // Manually refresh chat models
+                    try {
+                        this.showInfoMessage('Refreshing AI models...');
+                        const chatModels = await this.getAvailableChatModels();
+                        webviewView.webview.postMessage({
+                            type: 'chatModels',
+                            data: chatModels
+                        });
+                        this.showInfoMessage('AI models refreshed successfully!');
+                    } catch (error) {
+                        console.error('Error refreshing chat models:', error);
+                        this.showErrorMessage(`Failed to refresh AI models: ${error instanceof Error ? error.message : 'Unknown error'}`);
+                        webviewView.webview.postMessage({
+                            type: 'chatModels',
+                            data: [],
+                            error: error instanceof Error ? error.message : 'Unknown error'
+                        });
+                    }
                     break;
                 case 'requestSettings':
                     // Send extension settings to webview
@@ -340,6 +378,231 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                     break;
             }
         });
+    }
+
+    /**
+     * Get available chat models from VS Code Language Model API
+     */
+    private async getAvailableChatModels(): Promise<any[]> {
+        try {
+            console.log('Attempting to get chat models via vscode.lm.selectChatModels()...');
+            
+            // Check if the API exists
+            if (!vscode.lm || !vscode.lm.selectChatModels) {
+                console.warn('vscode.lm.selectChatModels API is not available in this VS Code version');
+                vscode.window.showWarningMessage(
+                    'Language Model API is not available. Please update VS Code to version 1.90+ and ensure GitHub Copilot is installed.',
+                    'Install Copilot'
+                ).then(selection => {
+                    if (selection === 'Install Copilot') {
+                        vscode.commands.executeCommand('workbench.extensions.search', 'GitHub.copilot');
+                    }
+                });
+                return this.getFallbackModels();
+            }
+
+            // Try to get models with timeout
+            const timeoutPromise = new Promise<never>((_, reject) => {
+                setTimeout(() => reject(new Error('Timeout after 10 seconds')), 10000);
+            });
+
+            const modelsPromise = vscode.lm.selectChatModels();
+            const models = await Promise.race([modelsPromise, timeoutPromise]);
+            
+            console.log('Chat models returned:', models?.length || 0, 'models');
+            
+            if (!models || models.length === 0) {
+                console.warn('No chat models available from API, using fallback');
+                vscode.window.showWarningMessage(
+                    'No AI chat models are currently available. Please ensure GitHub Copilot is installed and you are signed in.',
+                    'Check Copilot Status',
+                    'Use Fallback Models'
+                ).then(selection => {
+                    if (selection === 'Check Copilot Status') {
+                        vscode.commands.executeCommand('github.copilot.signIn');
+                    }
+                });
+                return this.getFallbackModels();
+            }
+
+            const formattedModels = await Promise.all(models.map(async model => {
+                console.log('Processing model:', {
+                    id: model.id,
+                    name: model.name,
+                    vendor: model.vendor,
+                    family: model.family
+                });
+
+                // Validate model availability
+                const isAvailable = await this.validateModelQuickly(model);
+                const displayName = this.formatModelDisplayName(model, isAvailable);
+
+                return {
+                    id: model.id,
+                    name: model.name || model.id,
+                    vendor: model.vendor,
+                    family: model.family,
+                    version: model.version,
+                    maxInputTokens: model.maxInputTokens,
+                    displayName: displayName,
+                    isAvailable: isAvailable
+                };
+            }));
+
+            const availableCount = formattedModels.filter(m => m.isAvailable).length;
+            const totalCount = formattedModels.length;
+            
+            console.log(`Successfully loaded ${totalCount} AI models (${availableCount} available)`);
+            
+            if (availableCount === 0) {
+                vscode.window.showWarningMessage(
+                    `Found ${totalCount} AI models but none are currently accessible. Please check your AI service permissions.`,
+                    'Check Copilot Settings'
+                ).then(selection => {
+                    if (selection === 'Check Copilot Settings') {
+                        vscode.commands.executeCommand('workbench.action.openSettings', 'github.copilot');
+                    }
+                });
+            } else if (availableCount < totalCount) {
+                vscode.window.showInformationMessage(
+                    `Successfully loaded ${availableCount}/${totalCount} AI models for code review (some models may be disabled)`
+                );
+            } else {
+                vscode.window.showInformationMessage(`Successfully loaded ${totalCount} AI models for code review`);
+            }
+            
+            return formattedModels;
+
+        } catch (error) {
+            console.error('Error selecting chat models:', error);
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            
+            if (errorMessage.includes('Timeout')) {
+                vscode.window.showWarningMessage(
+                    'Loading AI models timed out after 10 seconds. You can try manual refresh.',
+                    'Manual Refresh',
+                    'Check Copilot'
+                ).then(selection => {
+                    if (selection === 'Manual Refresh') {
+                        // Trigger manual refresh via webview
+                        if (this._view) {
+                            this._view.webview.postMessage({
+                                type: 'showManualRefresh'
+                            });
+                        }
+                    } else if (selection === 'Check Copilot') {
+                        vscode.commands.executeCommand('github.copilot.signIn');
+                    }
+                });
+            } else {
+                vscode.window.showErrorMessage(
+                    `Failed to load AI models: ${errorMessage}. Using fallback models.`,
+                    'View Logs'
+                ).then(selection => {
+                    if (selection === 'View Logs') {
+                        vscode.commands.executeCommand('workbench.action.showLogs');
+                    }
+                });
+            }
+            
+            return this.getFallbackModels();
+        }
+    }
+
+    private getFallbackModels(): any[] {
+        console.log('Using fallback chat models - these are mock models for testing');
+        return [
+            {
+                id: 'gpt-4o',
+                name: 'GPT-4o',
+                vendor: 'openai',
+                family: 'gpt-4o', 
+                version: 'latest',
+                maxInputTokens: 128000,
+                displayName: '🔄 GPT-4o (OpenAI) - Fallback'
+            },
+            // {
+            //     id: 'gpt-3.5-turbo',
+            //     name: 'GPT-3.5 Turbo',
+            //     vendor: 'openai',
+            //     family: 'gpt-3.5-turbo',
+            //     version: 'latest',
+            //     maxInputTokens: 16000,
+            //     displayName: '🔄 GPT-3.5 Turbo (OpenAI) - Fallback'
+            // },
+            // {
+            //     id: 'claude-3-haiku',
+            //     name: 'Claude 3 Haiku',
+            //     vendor: 'anthropic',
+            //     family: 'claude-3',
+            //     version: 'haiku',
+            //     maxInputTokens: 200000,
+            //     displayName: '🔄 Claude 3 Haiku (Anthropic) - Fallback'
+            // },
+            // {
+            //     id: 'gemini-pro',
+            //     name: 'Gemini Pro',
+            //     vendor: 'google',
+            //     family: 'gemini',
+            //     version: 'pro',
+            //     maxInputTokens: 1000000,
+            //     displayName: '🔄 Gemini Pro (Google) - Fallback'
+            // }
+        ];
+    }
+
+    /**
+     * Format model display name for UI
+     */
+    private formatModelDisplayName(model: any, isAvailable?: boolean): string {
+        const parts = [];
+        
+        if (model.name) {
+            parts.push(model.name);
+        } else if (model.family) {
+            parts.push(model.family);
+        } else {
+            parts.push(model.id);
+        }
+        
+        if (model.vendor) {
+            parts.push(`(${model.vendor})`);
+        }
+        
+        if (model.maxInputTokens) {
+            parts.push(`- ${Math.floor(model.maxInputTokens / 1000)}K tokens`);
+        }
+        
+        // Add availability indicator
+        if (isAvailable === false) {
+            return `⚠️ ${parts.join(' ')} - Limited Access`;
+        } else if (isAvailable === true) {
+            return `✅ ${parts.join(' ')}`;
+        }
+        
+        return parts.join(' ');
+    }
+
+    /**
+     * Quick validation of model availability without full test
+     */
+    private async validateModelQuickly(model: any): Promise<boolean> {
+        try {
+            // For now, we assume models returned by selectChatModels are available
+            // This is a placeholder for more sophisticated validation
+            // Could be enhanced with actual test requests if needed
+            
+            // Check for known problematic patterns
+            if (!model.id || !model.family) {
+                return false;
+            }
+            
+            // All models from selectChatModels should be available in theory
+            return true;
+        } catch (error) {
+            console.warn(`Quick validation failed for model ${model.id}:`, error);
+            return false;
+        }
     }
 
     /**
