@@ -32,8 +32,8 @@ export function activate(context: vscode.ExtensionContext) {
 	// Set extension context for review service
 	reviewService.setExtensionContext(context);
 
-	// Load git information on activation
-	loadGitInfo(gitService);
+	// Remove blocking git load - let webview request it when needed
+	// This speeds up extension activation significantly
 
 	// Register the sidebar provider with git service
 	const provider = new SidebarProvider(context.extensionUri, gitService, context);
@@ -43,8 +43,8 @@ export function activate(context: vscode.ExtensionContext) {
 
 	// Register refresh git info command
 	const refreshGitCommand = vscode.commands.registerCommand('premerge-review.refreshGit', async () => {
-		await loadGitInfo(gitService);
-		vscode.window.showInformationMessage('Git information refreshed!');
+		// Git info is loaded on-demand by webview when needed
+		// This command is kept for compatibility with package.json command registration
 	});
 
 	// Register command to show current review data
@@ -200,32 +200,6 @@ export function activate(context: vscode.ExtensionContext) {
 		showReviewHistoryCommand,
 		clearReviewResultsCommand
 	);
-}
-
-async function loadGitInfo(gitService: GitService) {
-	try {
-		console.log('Loading git information...');
-		const gitInfo = await gitService.getGitInfo();
-		
-		if (!gitInfo.isGitRepo) {
-			vscode.window.showWarningMessage('Current workspace is not a Git repository.');
-			return;
-		}
-
-		console.log('Git Info loaded:', {
-			currentBranch: gitInfo.currentBranch,
-			totalBranches: gitInfo.allBranches.length,
-			branches: gitInfo.allBranches.slice(0, 5) // Log first 5 branches
-		});
-
-		vscode.window.showInformationMessage(
-			`Git loaded: ${gitInfo.allBranches.length} branches, current: ${gitInfo.currentBranch}`
-		);
-
-	} catch (error) {
-		console.error('Failed to load git info:', error);
-		vscode.window.showErrorMessage('Failed to load Git information');
-	}
 }
 
 // This method is called when your extension is deactivated

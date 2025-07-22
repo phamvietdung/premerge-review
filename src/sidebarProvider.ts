@@ -207,8 +207,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                     });
                     break;
                 case 'refreshGit':
-                    // Refresh git info and send to webview
-                    await this._gitService.refreshBranches();
+                    // Simply re-request git info (branches may have changed)
                     const refreshedGitInfo = await this._gitService.getGitInfo();
                     webviewView.webview.postMessage({
                         type: 'gitInfo',

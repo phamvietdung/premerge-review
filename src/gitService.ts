@@ -42,57 +42,19 @@ export class GitService {
             const status = await this.git.status();
             const currentBranch = status.current || '';
 
-            // Get all branches (local and remote)
-            const branchSummary: BranchSummary = await this.git.branch(['-a']);
+            // Get local branches only (exclude remotes)
+            const branchSummary: BranchSummary = await this.git.branch(['--list']);
             
-            // Extract local branches
+            // Extract local branches only (exclude remotes completely)
             const localBranches = Object.keys(branchSummary.branches)
                 .filter(branch => !branch.startsWith('remotes/'))
                 .filter(branch => branch !== 'HEAD')
                 .sort();
 
-            // Extract remote branches (remove remotes/origin/ prefix)
-            const remoteBranches = Object.keys(branchSummary.branches)
-                .filter(branch => branch.startsWith('remotes/origin/'))
-                .map(branch => branch.replace('remotes/origin/', ''))
-                .filter(branch => branch !== 'HEAD')
-                .filter(branch => !localBranches.includes(branch))
-                .sort();
-
-            // Combine all unique branches, but validate they exist
-            const allBranchCandidates = Array.from(new Set([...localBranches, ...remoteBranches]));
-            const validBranches: string[] = [];
-
-            // Validate each branch exists
-            for (const branch of allBranchCandidates) {
-                try {
-                    // Check if branch exists locally or remotely
-                    const variations = [branch, `origin/${branch}`, `remotes/origin/${branch}`];
-                    let branchExists = false;
-                    
-                    for (const variation of variations) {
-                        try {
-                            await this.git.raw(['rev-parse', '--verify', variation]);
-                            branchExists = true;
-                            break;
-                        } catch {
-                            continue;
-                        }
-                    }
-                    
-                    if (branchExists) {
-                        validBranches.push(branch);
-                    }
-                } catch {
-                    // Skip invalid branches
-                    console.log(`Skipping invalid branch: ${branch}`);
-                }
-            }
-
             return {
                 currentBranch,
-                allBranches: validBranches.sort(),
-                remoteBranches,
+                allBranches: localBranches,
+                remoteBranches: [], // We don't need remote branches for the UI
                 isGitRepo: true
             };
 
@@ -121,10 +83,10 @@ export class GitService {
 
     async getAllBranches(): Promise<string[]> {
         try {
-            const branchSummary = await this.git.branch(['-a']);
+            // Get local branches only (consistent with getGitInfo)
+            const branchSummary = await this.git.branch(['--list']);
             return Object.keys(branchSummary.branches)
-                .filter(branch => !branch.startsWith('remotes/') || branch.startsWith('remotes/origin/'))
-                .map(branch => branch.replace('remotes/origin/', ''))
+                .filter(branch => !branch.startsWith('remotes/'))
                 .filter(branch => branch !== 'HEAD')
                 .sort();
         } catch (error) {
@@ -133,13 +95,19 @@ export class GitService {
         }
     }
 
-    async refreshBranches(): Promise<void> {
+    /**
+     * Get remote branches if needed (optional, for future use)
+     */
+    async getRemoteBranches(): Promise<string[]> {
         try {
-            // Fetch latest from remote
-            await this.git.fetch();
+            const branchSummary = await this.git.branch(['-r']);
+            return Object.keys(branchSummary.branches)
+                .map(branch => branch.replace('origin/', ''))
+                .filter(branch => branch !== 'HEAD')
+                .sort();
         } catch (error) {
-            console.error('Error fetching from remote:', error);
-            vscode.window.showWarningMessage('Could not fetch latest branches from remote');
+            console.error('Error getting remote branches:', error);
+            return [];
         }
     }
 
