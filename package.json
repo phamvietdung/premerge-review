@@ -2,7 +2,7 @@
   "name": "premerge-review",
   "displayName": "PreMerge Review",
   "description": "AI-assisted code review before merging with visual diff viewer, GitHub Copilot integration, and Slack notifications",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "publisher": "phamvietdung",
   "icon": "media/icon.png",
   "repository": {
@@ -33,7 +33,6 @@
     "vscode": "^1.102.0"
   },
   "activationEvents": [
-    "*"
   ],
   "categories": [
     "Other",
@@ -140,14 +139,6 @@
           "type": "string",
           "default": "",
           "description": "Slack Incoming Webhook URL (e.g., https://hooks.slack.com/services/YOUR/WEBHOOK/URL). Leave empty to disable Slack integration.",
-          "scope": "resource"
-        },
-        "premergeReview.maxTokensPerPart": {
-          "type": "number",
-          "default": 8000,
-          "minimum": 1000,
-          "maximum": 32000,
-          "description": "Maximum number of tokens per part when splitting large diffs for review. Smaller values use less tokens but require more API calls.",
           "scope": "resource"
         },
         "premergeReview.intelligentRouting.enabled": {

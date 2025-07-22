@@ -24,7 +24,7 @@ function SearchableSelect({ options, value, onChange, placeholder = "Select..." 
     const containerRef = useRef(null);
 
     useEffect(() => {
-        const filtered = options.filter(option => 
+        const filtered = options.filter(option =>
             option.toLowerCase().includes(searchTerm.toLowerCase())
         );
         setFilteredOptions(filtered);
@@ -50,14 +50,14 @@ function SearchableSelect({ options, value, onChange, placeholder = "Select..." 
 
     return (
         <div style={styles.selectContainer as any} ref={containerRef}>
-            <div 
+            <div
                 style={styles.selectDisplay as any}
                 onClick={() => setIsOpen(!isOpen)}
             >
                 <span>{value || placeholder}</span>
                 <span style={styles.arrow as any}>{isOpen ? '▲' : '▼'}</span>
             </div>
-            
+
             {isOpen && (
                 <div style={styles.dropdown as any}>
                     <input
@@ -273,10 +273,10 @@ const styles = {
     intelligentRoutingInfo: {
         backgroundColor: 'var(--vscode-editorInfo-background)',
         color: 'var(--vscode-editorInfo-foreground)',
-        padding: '0.75rem',
+        padding: '0.5rem',
         borderRadius: '4px',
-        fontSize: '0.85rem',
-        marginBottom: '1rem',
+        fontSize: '0.65rem',
+        marginBottom: '0.5rem',
         border: '1px solid var(--vscode-editorInfo-border, var(--vscode-editorInfo-foreground, #22c55e))',
         display: 'flex',
         alignItems: 'flex-start',
@@ -285,10 +285,10 @@ const styles = {
     intelligentRoutingWarning: {
         backgroundColor: 'var(--vscode-editorWarning-background)',
         color: 'var(--vscode-editorWarning-foreground)',
-        padding: '0.75rem',
+        padding: '0.5rem',
         borderRadius: '4px',
-        fontSize: '0.85rem',
-        marginBottom: '1rem',
+        fontSize: '0.65rem',
+        marginBottom: '0.5rem',
         border: '1px solid var(--vscode-editorWarning-border, var(--vscode-contrastBorder, #f59e0b))',
         display: 'flex',
         alignItems: 'flex-start',
@@ -296,7 +296,7 @@ const styles = {
     },
     // Review actions section
     reviewSection: {
-        position:'absolute',
+        position: 'absolute',
         width: '100%',
         bottom: '0',
         left: '0',
@@ -419,9 +419,9 @@ function App() {
                 setCurrentBranch(message.data.currentBranch);
                 // Set default base branch with priority order
                 const priorityBranches = ['dev', 'main', 'master', 'staging'];
-                const defaultBase = priorityBranches.find(branch => 
+                const defaultBase = priorityBranches.find(branch =>
                     message.data.allBranches.includes(branch)
-                ) || message.data.allBranches.find((branch: string) => 
+                ) || message.data.allBranches.find((branch: string) =>
                     branch !== message.data.currentBranch
                 ) || '';
                 setBaseBranch(defaultBase);
@@ -436,7 +436,7 @@ function App() {
                     setModelsError(null);
                     setShowManualRefresh(false);
                     // Set default model (prefer GPT-4o if available)
-                    const defaultModel = message.data.find((model: ChatModel) => 
+                    const defaultModel = message.data.find((model: ChatModel) =>
                         model.family === 'gpt-4o' || model.id === 'gpt-4o'
                     ) || message.data[0];
                     if (defaultModel) {
@@ -472,9 +472,9 @@ function App() {
         if (currentBranch && gitInfo.isGitRepo) {
             setLoadingCommits(true);
             setSelectedCommit(''); // Clear previous commit selection
-            vscode.postMessage({ 
-                type: 'requestBranchCommits', 
-                branchName: currentBranch 
+            vscode.postMessage({
+                type: 'requestBranchCommits',
+                branchName: currentBranch
             });
         }
     }, [currentBranch, gitInfo.isGitRepo]);
@@ -503,8 +503,8 @@ function App() {
     ];
 
     // Use real git data or fallback
-    const branchOptions = gitInfo.isGitRepo && gitInfo.allBranches.length > 0 
-        ? gitInfo.allBranches 
+    const branchOptions = gitInfo.isGitRepo && gitInfo.allBranches.length > 0
+        ? gitInfo.allBranches
         : fallbackBranchOptions;
 
     const baseBranchOptions = gitInfo.isGitRepo && gitInfo.allBranches.length > 0
@@ -538,7 +538,7 @@ function App() {
 
     const handleShowSettings = () => {
         // Open VS Code settings for this extension
-        vscode.postMessage({ 
+        vscode.postMessage({
             type: 'openSettings',
             settingId: 'premergeReview'
         });
@@ -555,12 +555,12 @@ function App() {
     }
 
     // Prepare commit options for select
-    const commitOptions = commits.map((commit: any) => 
+    const commitOptions = commits.map((commit: any) =>
         `${commit.shortHash} - ${commit.message.split('\n')[0].substring(0, 50)}${commit.message.length > 50 ? '...' : ''}`
     );
 
     const getCommitHash = (commitOption: string) => {
-        const commit = commits.find((c: any) => 
+        const commit = commits.find((c: any) =>
             commitOption.startsWith(c.shortHash)
         ) as any;
         return commit ? commit.hash : '';
@@ -576,9 +576,27 @@ function App() {
         <div style={styles.container as any}>
             <div style={styles.header as any}>
                 <h2 style={styles.heading as any}>Premerge Review Extensions</h2>
-                <button style={styles.refreshButton as any} onClick={handleRefreshGit} title="Refresh git branches">
-                    🔄
-                </button>
+                {/* <button style={styles.refreshButton as any} onClick={handleRefreshGit} title="Refresh git branches">
+                    Intelligent mode
+                </button> */}
+                {intelligentRoutingEnabled ? (
+                    <div style={styles.intelligentRoutingInfo as any}>
+                        <div>
+                            <strong>Intelligent Routing Mode</strong>
+                            {/* <br /> */}
+                            {/* AI will analyze your changes and automatically select relevant instructions from: <code>{instructionFolderPath}</code> */}
+                        </div>
+                    </div>
+                ) : (
+                    <div style={styles.intelligentRoutingWarning as any}>
+                        <div>
+                            <strong>Traditional Instructions Mode</strong>
+                            {/* <br /> */}
+                            {/* Using all available instructions. Enable intelligent routing in settings for AI-powered instruction selection.
+                        <br /><em>Note: Intelligent routing uses additional AI requests.</em> */}
+                        </div>
+                    </div>
+                )}
             </div>
 
             {!gitInfo.isGitRepo && (
@@ -588,26 +606,7 @@ function App() {
             )}
 
             {/* Intelligent Routing Info */}
-            {intelligentRoutingEnabled ? (
-                <div style={styles.intelligentRoutingInfo as any}>
-                    {/* <span>🎯</span> */}
-                    <div>
-                        <strong>Intelligent Routing Enabled</strong>
-                        {/* <br /> */}
-                        {/* AI will analyze your changes and automatically select relevant instructions from: <code>{instructionFolderPath}</code> */}
-                    </div>
-                </div>
-            ) : (
-                <div style={styles.intelligentRoutingWarning as any}>
-                    {/* <span>⚠️</span> */}
-                    <div>
-                        <strong>Traditional Instructions Mode</strong>
-                        {/* <br /> */}
-                        {/* Using all available instructions. Enable intelligent routing in settings for AI-powered instruction selection.
-                        <br /><em>Note: Intelligent routing uses additional AI requests.</em> */}
-                    </div>
-                </div>
-            )}
+
 
             <label style={styles.label as any}>
                 Current Branch {gitInfo.isGitRepo && `(${gitInfo.allBranches.length} branches)`}
@@ -623,7 +622,7 @@ function App() {
             {currentBranch && gitInfo.isGitRepo && (
                 <div style={styles.commitSection as any}>
                     <label style={{ ...styles.label, marginTop: '1rem' } as any}>
-                        Select Commit (Optional) 
+                        Select Commit (Optional)
                         {loadingCommits && <span style={styles.loadingText as any}> - Loading commits...</span>}
                         {!loadingCommits && commits.length > 0 && <span style={styles.commitCount as any}> - {commits.length} commits loaded</span>}
                     </label>
@@ -638,8 +637,8 @@ function App() {
                     {selectedCommit && (
                         <div style={styles.selectedCommit as any}>
                             ✓ Selected commit: {selectedCommit.substring(0, 8)}
-                            <button 
-                                style={styles.clearButton as any} 
+                            <button
+                                style={styles.clearButton as any}
                                 onClick={() => setSelectedCommit('')}
                             >
                                 Clear
@@ -663,27 +662,27 @@ function App() {
             <label style={{ ...styles.label, marginTop: '1rem' } as any}>
                 AI Model for Review {loadingModels ? '(Loading...)' : `(${chatModels.length} models available)`}
             </label>
-            
+
             {modelsError && (
                 <div style={styles.warning as any}>
                     ⚠️ Failed to load AI models: {modelsError}
                 </div>
             )}
-            
+
             {showManualRefresh && (
-                <button 
+                <button
                     style={{
                         ...styles.button,
                         backgroundColor: '#f59e0b',
                         marginBottom: '0.5rem'
-                    } as any} 
+                    } as any}
                     onClick={handleRefreshModels}
                     disabled={loadingModels}
                 >
                     {loadingModels ? 'Refreshing...' : '🔄 Manual Refresh AI Models'}
                 </button>
             )}
-            
+
             {!loadingModels && chatModels.length > 0 && (
                 <SearchableSelect
                     options={chatModels.map((model: ChatModel) => model.displayName)}
@@ -701,8 +700,8 @@ function App() {
                 </div>
             )}
 
-            <button 
-                style={styles.button as any} 
+            <button
+                style={styles.button as any}
                 onClick={handleCreateReview}
                 disabled={!currentBranch || (!baseBranch && !selectedCommit) || !selectedModel}
             >
@@ -712,7 +711,7 @@ function App() {
             {/* Review Actions Section */}
             <div style={styles.reviewSection as any}>
                 <div style={styles.reviewActions as any}>
-                    <button 
+                    <button
                         style={{
                             ...styles.actionButton,
                             ...styles.infoButton
@@ -722,8 +721,8 @@ function App() {
                     >
                         📋 History
                     </button>
-                    
-                    <button 
+
+                    <button
                         style={{
                             ...styles.actionButton,
                             ...styles.settingsButton
