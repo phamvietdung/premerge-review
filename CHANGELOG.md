@@ -4,6 +4,34 @@ All notable changes to the "PreMerge Review" extension will be documented in thi
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [1.0.3] - 2025-07-22
+
+### 🎨 **Theme Support Release**
+
+#### ✨ **New Features**
+- **Light Theme Support**: Full compatibility with VS Code light themes
+- **Auto Theme Detection**: UI automatically adapts to current VS Code theme
+- **Consistent Styling**: Uses VS Code CSS variables for native look and feel
+- **Professional Appearance**: Seamless integration with both dark and light modes
+
+#### 🎨 **UI Improvements**
+- **Native Colors**: Uses VS Code's built-in color scheme variables
+- **Better Accessibility**: Improved contrast and readability in all themes
+- **Consistent Buttons**: Action buttons follow VS Code's button styling guidelines
+- **Theme-Aware Icons**: All UI elements respect current theme colors
+
+#### 🔧 **Technical Updates**
+- **CSS Variables**: Replaced hardcoded colors with VS Code theme variables
+- **Dynamic Styling**: Real-time theme switching without extension reload
+- **Font Integration**: Uses VS Code's configured font family
+- **Border Consistency**: All borders use theme-appropriate colors
+
+#### 📋 **Supported Themes**
+- ✅ Dark+ (default dark)
+- ✅ Light+ (default light)
+- ✅ High Contrast themes
+- ✅ All community themes that follow VS Code color standards
+
 ## [1.0.2] - 2025-07-22
 
 ### 🚀 **Performance Optimization Release**
