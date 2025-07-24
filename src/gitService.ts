@@ -240,4 +240,57 @@ export class GitService {
             return [];
         }
     }
+
+    /**
+     * Check if target branch needs to be pulled from remote
+     */
+    async checkTargetBranchStatus(targetBranch: string): Promise<{
+        needsPull: boolean;
+        message: string;
+        error?: string;
+    }> {
+        try {
+            // First, try to fetch the target branch from origin
+            try {
+                await this.git.fetch('origin', targetBranch);
+            } catch (fetchError) {
+                // If fetch fails, it might mean the branch doesn't exist on remote
+                // or there's no remote configured
+                return {
+                    needsPull: false,
+                    message: 'Unable to check remote status',
+                    error: `Fetch failed: ${fetchError instanceof Error ? fetchError.message : 'Unknown error'}`
+                };
+            }
+
+            // Get local commit hash
+            const localCommit = await this.git.revparse([targetBranch]);
+            
+            // Get remote commit hash
+            const remoteCommit = await this.git.revparse([`origin/${targetBranch}`]);
+
+            // Compare hashes
+            const needsPull = localCommit.trim() !== remoteCommit.trim();
+
+            let message = '';
+            if (needsPull) {
+                message = 'Branch is behind remote - pull recommended';
+            } else {
+                message = 'Branch is up to date with remote';
+            }
+
+            return {
+                needsPull,
+                message
+            };
+
+        } catch (error) {
+            console.error('Error checking target branch status:', error);
+            return {
+                needsPull: false,
+                message: 'Unable to check branch status',
+                error: error instanceof Error ? error.message : 'Unknown error'
+            };
+        }
+    }
 }

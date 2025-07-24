@@ -129,12 +129,6 @@
           "description": "List of instruction file paths to read for review guidance. Paths are relative to workspace root. Extension will automatically load any existing files.",
           "scope": "resource"
         },
-        "premergeReview.maxInstructionFileSize": {
-          "type": "number",
-          "default": 1048576,
-          "description": "Maximum size in bytes for instruction files (default: 1MB)",
-          "scope": "resource"
-        },
         "premergeReview.slack.webhookUrl": {
           "type": "string",
           "default": "",

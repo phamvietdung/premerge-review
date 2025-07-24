@@ -64,9 +64,6 @@ Configure the extension via VS Code settings (`Ctrl+,` → search "premerge"):
     "docs/review-guidelines.md"
   ],
   
-  // Maximum size for instruction files (1MB default)
-  "premergeReview.maxInstructionFileSize": 1048576,
-  
   // Slack webhook URL for notifications
   "premergeReview.slack.webhookUrl": "https://hooks.slack.com/services/YOUR/WEBHOOK/URL",
   

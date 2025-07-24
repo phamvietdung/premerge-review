@@ -403,6 +403,12 @@ function App() {
     const [showManualRefresh, setShowManualRefresh] = useState(false);
     const [intelligentRoutingEnabled, setIntelligentRoutingEnabled] = useState(false);
     const [instructionFolderPath, setInstructionFolderPath] = useState('.github/instructions');
+    const [targetBranchStatus, setTargetBranchStatus] = useState<{
+        needsPull: boolean;
+        message: string;
+        error?: string;
+    } | null>(null);
+    const [checkingTargetBranch, setCheckingTargetBranch] = useState(false);
 
     // Request git info when component mounts
     useEffect(() => {
@@ -460,6 +466,9 @@ function App() {
             } else if (message.type === 'reviewDataCleared') {
                 // Review data cleared - no need to track state for this simplified UI
                 console.log('Review data cleared');
+            } else if (message.type === 'targetBranchStatus') {
+                setTargetBranchStatus(message.data);
+                setCheckingTargetBranch(false);
             }
         };
 
@@ -478,6 +487,20 @@ function App() {
             });
         }
     }, [currentBranch, gitInfo.isGitRepo]);
+
+    // Check target branch status when baseBranch changes
+    useEffect(() => {
+        if (baseBranch && gitInfo.isGitRepo) {
+            setCheckingTargetBranch(true);
+            setTargetBranchStatus(null);
+            vscode.postMessage({
+                type: 'checkTargetBranch',
+                targetBranch: baseBranch
+            });
+        } else {
+            setTargetBranchStatus(null);
+        }
+    }, [baseBranch, gitInfo.isGitRepo]);
 
     // Sample branch options (fallback if git fails)
     const fallbackBranchOptions = [
@@ -650,6 +673,16 @@ function App() {
 
             <label style={{ ...styles.label, marginTop: '1rem' } as any}>
                 Target Branch {selectedCommit ? '(Will be ignored if commit is selected)' : ''} {gitInfo.isGitRepo && `(${gitInfo.allBranches.length} branches available)`}
+                {checkingTargetBranch && (
+                    <span style={{ color: 'var(--vscode-descriptionForeground)', fontSize: '0.75rem', marginLeft: '0.5rem' }}>
+                        🔄 Checking...
+                    </span>
+                )}
+                {targetBranchStatus && !checkingTargetBranch && targetBranchStatus.needsPull && (
+                    <span style={{ color: '#ff8c00', fontSize: '0.75rem', marginLeft: '0.5rem' }}>
+                        ⚠️ Pull recommended
+                    </span>
+                )}
             </label>
             <SearchableSelect
                 options={baseBranchOptions}

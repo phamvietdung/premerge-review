@@ -253,6 +253,35 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                     });
                     this.showInfoMessage('Git branches refreshed!');
                     break;
+                case 'checkTargetBranch':
+                    // Check if target branch needs pull
+                    try {
+                        const { targetBranch } = data;
+                        if (!targetBranch) {
+                            webviewView.webview.postMessage({
+                                type: 'targetBranchStatus',
+                                data: { needsPull: false, message: 'No target branch specified' }
+                            });
+                            return;
+                        }
+
+                        const branchStatus = await this._gitService.checkTargetBranchStatus(targetBranch);
+                        webviewView.webview.postMessage({
+                            type: 'targetBranchStatus',
+                            data: branchStatus
+                        });
+                    } catch (error) {
+                        console.error('Error checking target branch:', error);
+                        webviewView.webview.postMessage({
+                            type: 'targetBranchStatus',
+                            data: { 
+                                needsPull: false,
+                                message: 'Failed to check branch status',
+                                error: error instanceof Error ? error.message : 'Unknown error'
+                            }
+                        });
+                    }
+                    break;
                 case 'showDiffViewer':
                     try {
                         const reviewDataService = ReviewDataService.getInstance();
@@ -403,9 +432,9 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
 
             // Try to get models with timeout
             const timeoutPromise = new Promise<never>((_, reject) => {
-                setTimeout(() => reject(new Error('Timeout after 10 seconds')), 10000);
+                setTimeout(() => reject(new Error('Timeout after 30 seconds')), 30000);
             });
-
+            
             const modelsPromise = vscode.lm.selectChatModels();
             const models = await Promise.race([modelsPromise, timeoutPromise]);
             
@@ -479,7 +508,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
             
             if (errorMessage.includes('Timeout')) {
                 vscode.window.showWarningMessage(
-                    'Loading AI models timed out after 10 seconds. You can try manual refresh.',
+                    'Loading AI models timed out after 30 seconds. You can try manual refresh.',
                     'Manual Refresh',
                     'Check Copilot'
                 ).then(selection => {

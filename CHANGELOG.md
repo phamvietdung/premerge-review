@@ -113,8 +113,7 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 {
   "premergeReview.instructionFiles": ["custom/path/instructions.md"],
   "premergeReview.slack.webhookUrl": "https://hooks.slack.com/...",
-  "premergeReview.maxTokensPerPart": 8000,
-  "premergeReview.maxInstructionFileSize": 1048576
+  "premergeReview.maxTokensPerPart": 8000
 }
 ```
 
