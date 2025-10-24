@@ -1,5 +1,7 @@
 import * as vscode from 'vscode';
 import { getNonce } from './utils';
+import * as path from 'path';
+import fg from 'fast-glob';
 import { GitService } from './gitService';
 import { ReviewDataService } from './reviewDataService';
 import { ReviewService } from './reviewService';
@@ -76,6 +78,159 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                         type: 'branchCommits',
                         data: { branchName, commits }
                     });
+                    break;
+                case 'requestWorkspaceFolders':
+                    try {
+                        const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+                        if (!workspaceRoot) {
+                            webviewView.webview.postMessage({ type: 'workspaceFoldersError', error: 'No workspace open' });
+                            break;
+                        }
+
+                        // List top-level directories (non-dot) and root-level files
+                        const dirEntries = await fg(['*/'], { onlyDirectories: true, cwd: workspaceRoot, deep: 1, dot: false });
+                        const fileEntries = await fg(['*'], { onlyFiles: true, cwd: workspaceRoot, deep: 0, dot: false });
+
+                        const directories = dirEntries.map(d => ({
+                            name: path.basename(d.replace(/\/+$/, '')),
+                            path: path.join(workspaceRoot, d),
+                            relativePath: d.replace(/\/+$/, '')
+                        }));
+
+                        const files = fileEntries.map(f => ({
+                            name: path.basename(f),
+                            path: path.join(workspaceRoot, f),
+                            relativePath: f
+                        }));
+
+                        webviewView.webview.postMessage({ type: 'workspaceFolders', data: { directories, files } });
+                    } catch (error) {
+                        console.error('Error listing workspace folders:', error);
+                        webviewView.webview.postMessage({ type: 'workspaceFoldersError', error: error instanceof Error ? error.message : String(error) });
+                    }
+                    break;
+
+                case 'requestFilesInFolder':
+                    try {
+                        const folderPath: string = data.folderPath;
+                        if (!folderPath) {
+                            webviewView.webview.postMessage({ type: 'filesInFolder', folderPath, data: { directories: [], files: [] }, error: 'No folder path provided' });
+                            break;
+                        }
+
+                        // Use fast-glob to list immediate child directories and files
+                        const dirs = await fg(['*/'], { onlyDirectories: true, cwd: folderPath, deep: 1, dot: false });
+                        const files = await fg(['*'], { onlyFiles: true, cwd: folderPath, deep: 0, dot: false });
+
+                        const directories = dirs.map(d => ({
+                            name: path.basename(d.replace(/\/+$/, '')),
+                            path: path.join(folderPath, d),
+                            relativePath: d.replace(/\/+$/, '')
+                        }));
+
+                        const fileList = files.map(f => ({
+                            name: path.basename(f),
+                            path: path.join(folderPath, f),
+                            relativePath: path.join(path.basename(folderPath), f)
+                        }));
+
+                        webviewView.webview.postMessage({ type: 'filesInFolder', folderPath, data: { directories, files: fileList } });
+                    } catch (error) {
+                        console.error('Error listing files in folder:', error);
+                        webviewView.webview.postMessage({ type: 'filesInFolder', folderPath: data.folderPath, data: { directories: [], files: [] }, error: error instanceof Error ? error.message : String(error) });
+                    }
+                    break;
+
+                case 'submitFileReview':
+                    try {
+                        const filePath: string = data.filePath;
+                        if (!filePath) {
+                            webviewView.webview.postMessage({ type: 'fileReviewError', error: 'No file path provided' });
+                            break;
+                        }
+
+                        const fileUri = vscode.Uri.file(filePath);
+                        const doc = await vscode.workspace.openTextDocument(fileUri);
+                        await vscode.window.showTextDocument(doc, { preview: false });
+
+                        // Notify webview of success
+                        webviewView.webview.postMessage({ type: 'fileReviewSubmitted', filePath });
+                    } catch (error) {
+                        console.error('Error opening file for review:', error);
+                        webviewView.webview.postMessage({ type: 'fileReviewError', error: error instanceof Error ? error.message : String(error) });
+                    }
+                    break;
+                case 'submitFilesReview':
+                    try {
+                        const filePaths: string[] = data.filePaths;
+                        if (!Array.isArray(filePaths) || filePaths.length === 0) {
+                            webviewView.webview.postMessage({ type: 'fileReviewError', error: 'No file paths provided' });
+                            break;
+                        }
+
+                        const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+                        const fileContents: { path: string; relativePath: string; content: string }[] = [];
+
+                        for (const fp of filePaths) {
+                            try {
+                                const fileUri = vscode.Uri.file(fp);
+                                const bytes = await vscode.workspace.fs.readFile(fileUri);
+                                const content = Buffer.from(bytes).toString('utf8');
+                                const relative = workspaceRoot ? require('path').relative(workspaceRoot, fp) : fp;
+                                fileContents.push({ path: fp, relativePath: relative, content });
+                            } catch (readErr) {
+                                console.warn('Failed to read file for review:', fp, readErr);
+                            }
+                        }
+
+                        if (fileContents.length === 0) {
+                            webviewView.webview.postMessage({ type: 'fileReviewError', error: 'Unable to read any selected files' });
+                            break;
+                        }
+
+                        // Build a simple diff-like payload by concatenating full file contents for now
+                        const diffPayload = fileContents.map(f => `--- ${f.relativePath}\n${f.content}`).join('\n\n');
+
+                        const diffSummary = {
+                            files: fileContents.map(f => f.relativePath),
+                            insertions: 0,
+                            deletions: 0
+                        };
+
+                        // Prepare review data and store it in memory (so ReviewService can consume it)
+                        const currentBranch = (this._gitService && await this._gitService.getCurrentBranch()) || '';
+
+                        const reviewDataService = ReviewDataService.getInstance();
+                        reviewDataService.setReviewData({
+                            currentBranch: currentBranch,
+                            baseBranch: '',
+                            selectedCommit: undefined,
+                            selectedModel: undefined,
+                            diff: diffPayload,
+                            diffSummary: diffSummary,
+                            createdAt: new Date()
+                        });
+
+                        // Kick off processing flow similar to commit review
+                        const reviewService = ReviewService.getInstance(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath);
+                        if (reviewService) {
+                            reviewService.setExtensionContext(this._extensionContext);
+                            // Process review in background; user will be notified by ReviewService
+                            this.processReviewWithService(reviewService, {
+                                currentBranch: currentBranch,
+                                baseBranch: ''
+                            }).catch(err => {
+                                console.error('Error processing files review:', err);
+                            });
+                        }
+
+                        // Notify webview of success (send first file path as shorthand)
+                        webviewView.webview.postMessage({ type: 'fileReviewSubmitted', filePath: fileContents[0].path });
+
+                    } catch (error) {
+                        console.error('Error submitting files for review:', error);
+                        webviewView.webview.postMessage({ type: 'fileReviewError', error: error instanceof Error ? error.message : String(error) });
+                    }
                     break;
                 case 'createReview':
                     try {

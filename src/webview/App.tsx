@@ -1,5 +1,6 @@
 import { render } from 'preact';
 import { useState, useRef, useEffect } from 'preact/hooks';
+import FileReviewTab from './components/FileReviewTab';
 
 declare global {
     function acquireVsCodeApi(): any;
@@ -410,6 +411,7 @@ function App() {
         error?: string;
     } | null>(null);
     const [checkingTargetBranch, setCheckingTargetBranch] = useState(false);
+    const [activeTab, setActiveTab] = useState<'premerge' | 'file'>('premerge');
 
     // Request git info when component mounts
     useEffect(() => {
@@ -599,29 +601,40 @@ function App() {
     return (
         <div style={styles.container as any}>
             <div style={styles.header as any}>
-                <h2 style={styles.heading as any}>Premerge Review Extensions</h2>
-                {/* <button style={styles.refreshButton as any} onClick={handleRefreshGit} title="Refresh git branches">
-                    Intelligent mode
-                </button> */}
-                {intelligentRoutingEnabled ? (
-                    <div style={styles.intelligentRoutingInfo as any}>
-                        <div>
-                            <strong>Intelligent Routing Mode</strong>
-                            {/* <br /> */}
-                            {/* AI will analyze your changes and automatically select relevant instructions from: <code>{instructionFolderPath}</code> */}
-                        </div>
-                    </div>
-                ) : (
-                    <div style={styles.intelligentRoutingWarning as any}>
-                        <div>
-                            <strong>Traditional Instructions Mode</strong>
-                            {/* <br /> */}
-                            {/* Using all available instructions. Enable intelligent routing in settings for AI-powered instruction selection.
-                        <br /><em>Note: Intelligent routing uses additional AI requests.</em> */}
-                        </div>
-                    </div>
-                )}
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                    <button
+                        onClick={() => setActiveTab('premerge')}
+                        title="Switch to review commit"
+                        style={{
+                            padding: '0.4rem 0.6rem',
+                            borderRadius: '4px',
+                            border: activeTab === 'premerge' ? '2px solid var(--vscode-list-activeSelectionBackground)' : '1px solid var(--vscode-button-border)',
+                            background: activeTab === 'premerge' ? 'var(--vscode-button-background)' : 'transparent',
+                            color: 'var(--vscode-button-foreground)',
+                            cursor: 'pointer'
+                        } as any}
+                    >
+                        Review Commit
+                    </button>
+
+                    <button
+                        onClick={() => setActiveTab('file')}
+                        title="Switch to review file"
+                        style={{
+                            padding: '0.4rem 0.6rem',
+                            borderRadius: '4px',
+                            border: activeTab === 'file' ? '2px solid var(--vscode-list-activeSelectionBackground)' : '1px solid var(--vscode-button-border)',
+                            background: activeTab === 'file' ? 'var(--vscode-button-background)' : 'transparent',
+                            color: 'var(--vscode-button-foreground)',
+                            cursor: 'pointer'
+                        } as any}
+                    >
+                        Review File
+                    </button>
+                </div>
             </div>
+
+            {activeTab === 'premerge' && (<>
 
             {!gitInfo.isGitRepo && (
                 <div style={styles.warning as any}>
@@ -768,6 +781,16 @@ function App() {
                     </button>
                 </div>
             </div>
+            </>) }
+
+            {activeTab === 'file' && (
+                <div style={{ marginTop: '1rem' }}>
+                    {/* File review tab component */}
+                    {/* FileReviewTab receives vscode via props */}
+                    <FileReviewTab vscode={vscode} />
+                </div>
+            )}
+
         </div>
     );
 }
