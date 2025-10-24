@@ -285,55 +285,66 @@ export function CommitReviewTab(props: { vscode: any }) {
                 placeholder="Select target branch..."
             />
 
-            {/* Chat Model Selection */}
-            <label style={{ ...styles.label, marginTop: '1rem' } as any}>
-                AI Model for Review {loadingModels ? '(Loading...)' : `(${chatModels.length} models available)`}
-            </label>
+            {/* Chat Model Selection and Create Review on one line */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '1rem' } as any}>
+                <div style={{ flex: '1 1 auto', minWidth: 0 } as any}>
+                    {/* <label style={styles.label as any}>
+                        AI Model for Review {loadingModels ? '(Loading...)' : `(${chatModels.length} models available)`}
+                    </label> */}
 
-            {modelsError && (
-                <div style={styles.warning as any}>
-                    ⚠️ Failed to load AI models: {modelsError}
+                    {modelsError && (
+                        <div style={styles.warning as any}>
+                            ⚠️ Failed to load AI models: {modelsError}
+                        </div>
+                    )}
+
+                    {showManualRefresh && (
+                        <button
+                            style={{
+                                ...styles.button,
+                                backgroundColor: '#f59e0b',
+                                marginBottom: '0.5rem'
+                            } as any}
+                            onClick={handleRefreshModels}
+                            disabled={loadingModels}
+                        >
+                            {loadingModels ? 'Refreshing...' : '🔄 Manual Refresh AI Models'}
+                        </button>
+                    )}
+
+                    {!loadingModels && chatModels.length > 0 && (
+                        <SearchableSelect
+                            options={chatModels.map((model: ChatModel) => model.displayName)}
+                            value={chatModels.find((model: ChatModel) => model.id === selectedModel)?.displayName || ''}
+                            onChange={(displayName: any) => {
+                                const model = chatModels.find((m: ChatModel) => m.displayName === displayName);
+                                if (model) setSelectedModel(model.id);
+                            }}
+                            placeholder="Select AI model for code review..."
+                        />
+                    )}
+                    {!loadingModels && chatModels.length === 0 && !showManualRefresh && (
+                        <div style={styles.warning as any}>
+                            ⚠️ No AI models available. Using default GPT-4o.
+                        </div>
+                    )}
                 </div>
-            )}
 
-            {showManualRefresh && (
-                <button
-                    style={{
-                        ...styles.button,
-                        backgroundColor: '#f59e0b',
-                        marginBottom: '0.5rem'
-                    } as any}
-                    onClick={handleRefreshModels}
-                    disabled={loadingModels}
-                >
-                    {loadingModels ? 'Refreshing...' : '🔄 Manual Refresh AI Models'}
-                </button>
-            )}
-
-            {!loadingModels && chatModels.length > 0 && (
-                <SearchableSelect
-                    options={chatModels.map((model: ChatModel) => model.displayName)}
-                    value={chatModels.find((model: ChatModel) => model.id === selectedModel)?.displayName || ''}
-                    onChange={(displayName: any) => {
-                        const model = chatModels.find((m: ChatModel) => m.displayName === displayName);
-                        if (model) setSelectedModel(model.id);
-                    }}
-                    placeholder="Select AI model for code review..."
-                />
-            )}
-            {!loadingModels && chatModels.length === 0 && !showManualRefresh && (
-                <div style={styles.warning as any}>
-                    ⚠️ No AI models available. Using default GPT-4o.
+                <div style={{ flex: '0 0 auto' } as any}>
+                    <button
+                        style={{
+                            ...styles.button,
+                            marginTop: 0,
+                            width: 'auto',
+                            padding: '0.6rem 1rem'
+                        } as any}
+                        onClick={handleCreateReview}
+                        disabled={!currentBranch || (!baseBranch && !selectedCommit) || !selectedModel}
+                    >
+                        Create Review {selectedCommit ? `(from commit ${selectedCommit.substring(0, 8)})` : `(from ${baseBranch})`} with {chatModels.find((model: any) => model.id === selectedModel)?.name || 'AI'}
+                    </button>
                 </div>
-            )}
-
-            <button
-                style={styles.button as any}
-                onClick={handleCreateReview}
-                disabled={!currentBranch || (!baseBranch && !selectedCommit) || !selectedModel}
-            >
-                Create Review {selectedCommit ? `(from commit ${selectedCommit.substring(0, 8)})` : `(from ${baseBranch})`} with {chatModels.find((model: any) => model.id === selectedModel)?.name || 'AI'}
-            </button>
+            </div>
 
             {/* Review Actions Section */}
             <div style={styles.reviewSection as any}>
