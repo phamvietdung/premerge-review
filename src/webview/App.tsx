@@ -17,6 +17,7 @@ interface ChatModel {
 
 const vscode = acquireVsCodeApi();
 
+//@ts-ignore
 function SearchableSelect({ options, value, onChange, placeholder = "Select..." }) {
     const [isOpen, setIsOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
@@ -24,14 +25,14 @@ function SearchableSelect({ options, value, onChange, placeholder = "Select..." 
     const containerRef = useRef(null);
 
     useEffect(() => {
-        const filtered = options.filter(option =>
+        const filtered = options.filter((option : any) =>
             option.toLowerCase().includes(searchTerm.toLowerCase())
         );
         setFilteredOptions(filtered);
     }, [searchTerm, options]);
 
     useEffect(() => {
-        function handleClickOutside(event) {
+        function handleClickOutside(event: any) {
             const container = containerRef.current as unknown as HTMLElement;
             if (container && container.contains && !container.contains(event.target as Node)) {
                 setIsOpen(false);
@@ -42,7 +43,7 @@ function SearchableSelect({ options, value, onChange, placeholder = "Select..." 
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    const handleSelect = (option) => {
+    const handleSelect = (option: any) => {
         onChange(option);
         setIsOpen(false);
         setSearchTerm('');
@@ -70,7 +71,7 @@ function SearchableSelect({ options, value, onChange, placeholder = "Select..." 
                     />
                     <div style={styles.optionsList as any}>
                         {filteredOptions.length > 0 ? (
-                            filteredOptions.map((option, index) => (
+                            filteredOptions.map((option : any, index: any) => (
                                 <div
                                     key={index}
                                     style={{
@@ -418,7 +419,7 @@ function App() {
         vscode.postMessage({ type: 'requestSettings' });
 
         // Listen for git info response
-        const handleMessage = (event) => {
+        const handleMessage = (event: any) => {
             const message = event.data;
             if (message.type === 'gitInfo') {
                 setGitInfo(message.data);
@@ -653,7 +654,7 @@ function App() {
                         <SearchableSelect
                             options={commitOptions}
                             value={selectedCommit ? formatCommitOption(selectedCommit) : ''}
-                            onChange={(option) => setSelectedCommit(getCommitHash(option))}
+                            onChange={(option: any) => setSelectedCommit(getCommitHash(option))}
                             placeholder="Select specific commit (or leave empty to use base branch)..."
                         />
                     )}
@@ -720,7 +721,7 @@ function App() {
                 <SearchableSelect
                     options={chatModels.map((model: ChatModel) => model.displayName)}
                     value={chatModels.find((model: ChatModel) => model.id === selectedModel)?.displayName || ''}
-                    onChange={(displayName) => {
+                    onChange={(displayName : any) => {
                         const model = chatModels.find((m: ChatModel) => m.displayName === displayName);
                         if (model) setSelectedModel(model.id);
                     }}
