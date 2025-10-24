@@ -324,8 +324,9 @@ export function CommitReviewTab(props: { vscode: any }) {
                         />
                     )}
                     {!loadingModels && chatModels.length === 0 && !showManualRefresh && (
-                        <div style={styles.warning as any}>
-                            ⚠️ No AI models available. Using default GPT-4o.
+                        <div style={{ maxWidth: '200px', ...styles.warning as any }}>
+                            {/* ⚠️ No AI models available. Using default GPT-4o. */}
+                            Loading model ...
                         </div>
                     )}
                 </div>
@@ -341,7 +342,8 @@ export function CommitReviewTab(props: { vscode: any }) {
                         onClick={handleCreateReview}
                         disabled={!currentBranch || (!baseBranch && !selectedCommit) || !selectedModel}
                     >
-                        Create Review {selectedCommit ? `(from commit ${selectedCommit.substring(0, 8)})` : `(from ${baseBranch})`} with {chatModels.find((model: any) => model.id === selectedModel)?.name || 'AI'}
+                        Create Review 
+                        {/* {selectedCommit ? `(from commit ${selectedCommit.substring(0, 8)})` : `(from ${baseBranch})`} with {chatModels.find((model: any) => model.id === selectedModel)?.name || 'AI'} */}
                     </button>
                 </div>
             </div>

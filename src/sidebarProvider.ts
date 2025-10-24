@@ -741,24 +741,25 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
         if (model.name) {
             parts.push(model.name);
         } else if (model.family) {
-            parts.push(model.family);
+            // parts.push(model.family);
         } else {
-            parts.push(model.id);
+            // parts.push(model.id);
         }
         
         if (model.vendor) {
-            parts.push(`(${model.vendor})`);
+            // parts.push(`(${model.vendor})`);
         }
         
         if (model.maxInputTokens) {
-            parts.push(`- ${Math.floor(model.maxInputTokens / 1000)}K tokens`);
+            // parts.push(`- ${Math.floor(model.maxInputTokens / 1000)}K tokens`);
         }
         
         // Add availability indicator
         if (isAvailable === false) {
+            // return `⚠️ ${parts.join(' ')} - Limited Access`;
             return `⚠️ ${parts.join(' ')} - Limited Access`;
         } else if (isAvailable === true) {
-            return `✅ ${parts.join(' ')}`;
+            return `${parts.join(' ')}`;
         }
         
         return parts.join(' ');
