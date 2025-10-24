@@ -1,8 +1,8 @@
 import { styles } from "../../styles";
 import { SearchableSelect } from "../components/SearchableSelect";
-import type { ReactNode } from 'react';
 import { useState, useEffect, useCallback, useRef } from 'preact/hooks';
 import { ChatModel } from "../../models";
+import { MessageType } from "../../models/messageTypes";
 
 export function CommitReviewTab(props: { vscode: any }) {
 
@@ -38,9 +38,9 @@ export function CommitReviewTab(props: { vscode: any }) {
     // Request git info when component mounts
     useEffect(() => {
         // Request git info and chat models from extension
-        vscode.postMessage({ type: 'requestGitInfo' });
-        vscode.postMessage({ type: 'requestChatModels' });
-        vscode.postMessage({ type: 'requestSettings' });
+        vscode.postMessage({ type: MessageType.RequestGitInfo });
+        vscode.postMessage({ type: MessageType.RequestChatModels });
+        vscode.postMessage({ type: MessageType.RequestSettings });
 
         // Listen for git info response
         const handleMessage = (event: any) => {
@@ -107,7 +107,7 @@ export function CommitReviewTab(props: { vscode: any }) {
             setLoadingCommits(true);
             setSelectedCommit(''); // Clear previous commit selection
             vscode.postMessage({
-                type: 'requestBranchCommits',
+                type: MessageType.RequestBranchCommits,
                 branchName: currentBranch
             });
         }
@@ -129,15 +129,12 @@ export function CommitReviewTab(props: { vscode: any }) {
 
     // Sample branch options (fallback if git fails)
     const fallbackBranchOptions = [
-        'ticket-1234_update_product',
-        'ticket-4567_fix_order',
-        'feature/new-dashboard',
-        'bugfix/payment-issue',
-        'hotfix/security-patch',
         'dev',
         'main',
         'staging',
-        'release/v2.0.0'
+        'uat',
+        'production',
+        'master'
     ];
 
     const fallbackBaseBranchOptions = [
@@ -145,9 +142,7 @@ export function CommitReviewTab(props: { vscode: any }) {
         'main',
         'master',
         'staging',
-        'release/v2.0.0',
-        'feature/new-dashboard',
-        'hotfix/security-patch'
+        'uat'
     ];
 
     // Use real git data or fallback
@@ -220,19 +215,16 @@ export function CommitReviewTab(props: { vscode: any }) {
         return `${commit.shortHash} - ${commit.message.split('\n')[0].substring(0, 50)}${commit.message.length > 50 ? '...' : ''}`;
     };
 
+    if (!gitInfo.isGitRepo)
+        return (
+            <div style={styles.warning as any}>
+                ⚠️ Not a Git repository. Using sample data.
+            </div>
+        );
+
 
     return (
         <>
-
-            {!gitInfo.isGitRepo && (
-                <div style={styles.warning as any}>
-                    ⚠️ Not a Git repository. Using sample data.
-                </div>
-            )}
-
-            {/* Intelligent Routing Info */}
-
-
             <label style={styles.label as any}>
                 Current Branch {gitInfo.isGitRepo && `(${gitInfo.allBranches.length} branches)`}
             </label>

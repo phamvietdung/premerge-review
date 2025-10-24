@@ -2,8 +2,6 @@ import { render } from 'preact';
 import { useState, useRef, useEffect } from 'preact/hooks';
 import FileReviewTab from './tabs/FileReviewTab';
 import { styles } from '../styles'
-import { ChatModel } from '../models'
-import { SearchableSelect } from './components/SearchableSelect';
 import { CommitReviewTab } from './tabs/CommitReviewTab';
 
 declare global {

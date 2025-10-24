@@ -8,6 +8,7 @@ import { ReviewService } from './reviewService';
 import { DiffViewerService } from './diffViewerService';
 import { ReviewHistoryView } from './reviewHistoryView';
 import { ReviewResultService } from './reviewResultService';
+import { MessageType } from './models/messageTypes';
 
 export class SidebarProvider implements vscode.WebviewViewProvider {
     public static readonly viewType = 'premergeReviewView';
@@ -67,10 +68,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
 
         webviewView.webview.onDidReceiveMessage(async data => {
             switch (data.type) {
-                case 'buttonClicked':
-                    this.showInfoMessage('Button được nhấn từ Preact UI!');
-                    break;
-                case 'requestBranchCommits':
+                case MessageType.RequestBranchCommits:
                     // Send branch commits to webview
                     const { branchName } = data;
                     const commits = await this._gitService.getBranchCommits(branchName, 100);
@@ -79,7 +77,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                         data: { branchName, commits }
                     });
                     break;
-                case 'requestWorkspaceFolders':
+                case MessageType.RequestWorkspaceFolders:
                     try {
                         const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
                         if (!workspaceRoot) {
@@ -109,8 +107,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                         webviewView.webview.postMessage({ type: 'workspaceFoldersError', error: error instanceof Error ? error.message : String(error) });
                     }
                     break;
-
-                case 'requestFilesInFolder':
+                case MessageType.RequestFilesInFolder:
                     try {
                         const folderPath: string = data.folderPath;
                         if (!folderPath) {
@@ -141,7 +138,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                     }
                     break;
 
-                case 'submitFileReview':
+                case MessageType.SubmitFileReview:
                     try {
                         const filePath: string = data.filePath;
                         if (!filePath) {
@@ -160,7 +157,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                         webviewView.webview.postMessage({ type: 'fileReviewError', error: error instanceof Error ? error.message : String(error) });
                     }
                     break;
-                case 'submitFilesReview':
+                case MessageType.SubmitFilesReview:
                     try {
                         const filePaths: string[] = data.filePaths;
                         if (!Array.isArray(filePaths) || filePaths.length === 0) {
@@ -232,7 +229,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                         webviewView.webview.postMessage({ type: 'fileReviewError', error: error instanceof Error ? error.message : String(error) });
                     }
                     break;
-                case 'createReview':
+                case MessageType.CreateReview:
                     try {
                         const { currentBranch, baseBranch, selectedCommit, selectedModel } = data.data;
                         
@@ -342,7 +339,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                         this.showErrorMessage('Failed to create review');
                     }
                     break;
-                case 'requestGitInfo':
+                case MessageType.RequestGitInfo:
                     // Send git info to webview
                     const gitInfo = await this._gitService.getGitInfo();
                     webviewView.webview.postMessage({
@@ -350,7 +347,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                         data: gitInfo
                     });
                     break;
-                case 'requestChatModels':
+                case MessageType.RequestChatModels:
                     // Send available chat models to webview
                     try {
                         const chatModels = await this.getAvailableChatModels();
@@ -367,7 +364,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                         });
                     }
                     break;
-                case 'refreshChatModels':
+                case MessageType.RefreshChatModels:
                     // Manually refresh chat models
                     try {
                         this.showInfoMessage('Refreshing AI models...');
@@ -387,7 +384,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                         });
                     }
                     break;
-                case 'requestSettings':
+                case MessageType.RequestSettings:
                     // Send extension settings to webview
                     const config = vscode.workspace.getConfiguration('premergeReview');
                     const settings = {
@@ -399,7 +396,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                         data: settings
                     });
                     break;
-                case 'refreshGit':
+                case MessageType.RefreshGit:
                     // Simply re-request git info (branches may have changed)
                     const refreshedGitInfo = await this._gitService.getGitInfo();
                     webviewView.webview.postMessage({
@@ -408,7 +405,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                     });
                     this.showInfoMessage('Git branches refreshed!');
                     break;
-                case 'checkTargetBranch':
+                case MessageType.CheckTargetBranch:
                     // Check if target branch needs pull
                     try {
                         const { targetBranch } = data;
@@ -437,7 +434,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                         });
                     }
                     break;
-                case 'showDiffViewer':
+                case MessageType.ShowDiffViewer:
                     try {
                         const reviewDataService = ReviewDataService.getInstance();
                         const reviewData = reviewDataService.getReviewData();
@@ -455,7 +452,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                         this.showErrorMessage('Failed to show diff viewer');
                     }
                     break;
-                case 'processReview':
+                case MessageType.ProcessReview:
                     try {
                         const reviewDataService = ReviewDataService.getInstance();
                         const reviewData = reviewDataService.getReviewData();
@@ -481,7 +478,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                         this.showErrorMessage('Failed to process review');
                     }
                     break;
-                case 'postToSlack':
+                case MessageType.PostToSlack:
                     try {
                         const reviewDataService = ReviewDataService.getInstance();
                         const reviewData = reviewDataService.getReviewData();
@@ -515,7 +512,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                         this.showErrorMessage('Failed to post to Slack');
                     }
                     break;
-                case 'showReviewResult':
+                case MessageType.ShowReviewResult:
                     try {
                         const reviewResultService = ReviewResultService.getInstance();
                         
@@ -535,7 +532,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                         this.showErrorMessage('Failed to show review result');
                     }
                     break;
-                case 'openSettings':
+                case MessageType.OpenSettings:
                     try {
                         const settingId = data.settingId || 'premergeReview';
                         await vscode.commands.executeCommand('workbench.action.openSettings', settingId);
@@ -544,7 +541,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                         this.showErrorMessage('Failed to open settings');
                     }
                     break;
-                case 'clearReviewData':
+                case MessageType.ClearReviewData:
                     try {
                         const reviewDataService = ReviewDataService.getInstance();
                         reviewDataService.clearReviewData();
