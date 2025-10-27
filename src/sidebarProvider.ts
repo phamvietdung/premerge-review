@@ -2,12 +2,12 @@ import * as vscode from 'vscode';
 import { getNonce } from './utils';
 import * as path from 'path';
 import fg from 'fast-glob';
-import { GitService } from './gitService';
-import { ReviewDataService } from './reviewDataService';
-import { ReviewService } from './reviewService';
-import { DiffViewerService } from './diffViewerService';
-import { ReviewHistoryView } from './reviewHistoryView';
-import { ReviewResultService } from './reviewResultService';
+import { GitService } from './services/gitService';
+import { ReviewDataService } from './services/reviewDataService';
+import { ReviewService } from './services/reviewService';
+import { DiffViewerService } from './services/diffViewerService';
+import { ReviewHistoryView } from './services/reviewHistoryView';
+import { ReviewResultService } from './services/reviewResultService';
 import { MessageType } from './models/messageTypes';
 
 export class SidebarProvider implements vscode.WebviewViewProvider {

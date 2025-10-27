@@ -238,7 +238,7 @@ export function CommitReviewTab(props: { vscode: any }) {
             {/* Commit Selection Section */}
             {currentBranch && gitInfo.isGitRepo && (
                 <div style={styles.commitSection as any}>
-                    <label style={{ ...styles.label, marginTop: '1rem' } as any}>
+                    <label style={{ ...styles.label, marginTop: '0.25rem' } as any}>
                         Select Commit (Optional)
                         {loadingCommits && <span style={styles.loadingText as any}> - Loading commits...</span>}
                         {!loadingCommits && commits.length > 0 && <span style={styles.commitCount as any}> - {commits.length} commits loaded</span>}

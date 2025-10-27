@@ -1,181 +1,215 @@
 {
-  "name": "premerge-review",
-  "displayName": "PreMerge Review",
-  "description": "AI-assisted code review before merging with visual diff viewer, GitHub Copilot integration, and Slack notifications",
-  "version": "1.0.4",
-  "publisher": "phamvietdung",
-  "icon": "media/icon.png",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/phamvietdung/premerge-review.git"
-  },
-  "bugs": {
-    "url": "https://github.com/phamvietdung/premerge-review/issues"
-  },
-  "homepage": "https://github.com/phamvietdung/premerge-review#readme",
-  "keywords": [
-    "code review",
-    "git",
-    "diff",
-    "ai",
-    "copilot",
-    "github",
-    "slack",
-    "merge",
-    "premerge",
-    "quality"
-  ],
-  "galleryBanner": {
-    "color": "#1e1e1e",
-    "theme": "dark"
-  },
-  "engines": {
-    "vscode": "^1.102.0"
-  },
-  "activationEvents": [
-  ],
-  "categories": [
-    "Other",
-    "Machine Learning",
-    "Linters",
-    "SCM Providers"
-  ],
-  "main": "./out/extension.js",
-  "contributes": {
-    "viewsContainers": {
-      "activitybar": [
-        {
-          "id": "premergeReviewSidebar",
-          "title": "PreMerge Review",
-          "icon": "./media/icon.png"
-        }
-      ]
+    "name": "premerge-review",
+    "displayName": "PreMerge Review",
+    "description": "AI-assisted code review before merging with visual diff viewer, GitHub Copilot integration, and Slack notifications",
+    "version": "1.0.4",
+    "publisher": "phamvietdung",
+    "icon": "media/icon.png",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/phamvietdung/premerge-review.git"
     },
-    "commands": [
-      {
-        "command": "premerge-review.helloWorld",
-        "title": "Hello World"
-      },
-      {
-        "command": "premerge-review.refreshGit",
-        "title": "Refresh Git Branches"
-      },
-      {
-        "command": "premerge-review.showReviewData",
-        "title": "Show Current Review Data"
-      },
-      {
-        "command": "premerge-review.testSlackConnection",
-        "title": "Test Slack Connection"
-      },
-      {
-        "command": "premerge-review.testLanguageModels",
-        "title": "Test Language Models API",
-        "category": "PreMerge Review"
-      },
-      {
-        "command": "premerge-review.validateAllModels",
-        "title": "Validate All AI Models",
-        "category": "PreMerge Review"
-      },
-      {
-        "command": "premerge-review.showDiffViewer",
-        "title": "Show Diff Viewer",
-        "category": "PreMerge Review",
-        "icon": "$(diff)"
-      },
-      {
-        "command": "premerge-review.exportDiff",
-        "title": "Export Diff",
-        "category": "PreMerge Review",
-        "icon": "$(export)"
-      },
-      {
-        "command": "premerge-review.showReviewHistory",
-        "title": "Show Review History",
-        "category": "PreMerge Review",
-        "icon": "$(history)"
-      },
-      {
-        "command": "premerge-review.clearReviewResults",
-        "title": "Clear All Review Results",
-        "category": "PreMerge Review",
-        "icon": "$(trash)"
-      }
+    "bugs": {
+        "url": "https://github.com/phamvietdung/premerge-review/issues"
+    },
+    "homepage": "https://github.com/phamvietdung/premerge-review#readme",
+    "keywords": [
+        "code review",
+        "git",
+        "diff",
+        "ai",
+        "copilot",
+        "github",
+        "slack",
+        "merge",
+        "premerge",
+        "quality"
     ],
-    "views": {
-      "premergeReviewSidebar": [
-        {
-          "id": "premergeReviewView",
-          "name": "PreMerge Review",
-          "type": "webview",
-          "icon": "./media/icon.png"
-        }
-      ]
+    "galleryBanner": {
+        "color": "#1e1e1e",
+        "theme": "dark"
     },
-    "configuration": {
-      "title": "PreMerge Review",
-      "properties": {
-        "premergeReview.instructionFiles": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "default": [
-            ".github/instructions.md",
-            ".github/review-instructions.md",
-            "docs/review-guidelines.md"
-          ],
-          "description": "List of instruction file paths to read for review guidance. Paths are relative to workspace root. Extension will automatically load any existing files.",
-          "scope": "resource"
+    "engines": {
+        "vscode": "^1.102.0"
+    },
+    "activationEvents": [
+        "onCommand:fileReview.add",
+        "onCommand:fileReview.showList"
+    ],
+    "categories": [
+        "Other",
+        "Machine Learning",
+        "Linters",
+        "SCM Providers"
+    ],
+    "main": "./out/extension.js",
+    "contributes": {
+        "viewsContainers": {
+            "activitybar": [
+                {
+                    "id": "premergeReviewSidebar",
+                    "title": "PreMerge Review",
+                    "icon": "./media/icon.png"
+                }
+            ]
         },
-        "premergeReview.slack.webhookUrl": {
-          "type": "string",
-          "default": "",
-          "description": "Slack Incoming Webhook URL (e.g., https://hooks.slack.com/services/YOUR/WEBHOOK/URL). Leave empty to disable Slack integration.",
-          "scope": "resource"
+        "commands": [
+            {
+                "command": "fileReview.add",
+                "title": "PreMerge - Add to review"
+            },
+            {
+                "command": "fileReview.showList",
+                "title": "PreMerge - Show file review"
+            },
+            {
+                "command": "premerge-review.showReviewData",
+                "title": "Show Current Review Data"
+            },
+            {
+                "command": "premerge-review.testSlackConnection",
+                "title": "Test Slack Connection"
+            },
+            {
+                "command": "premerge-review.testLanguageModels",
+                "title": "Test Language Models API",
+                "category": "PreMerge Review"
+            },
+            {
+                "command": "premerge-review.validateAllModels",
+                "title": "Validate All AI Models",
+                "category": "PreMerge Review"
+            },
+            {
+                "command": "premerge-review.showDiffViewer",
+                "title": "Show Diff Viewer",
+                "category": "PreMerge Review",
+                "icon": "$(diff)"
+            },
+            {
+                "command": "premerge-review.exportDiff",
+                "title": "Export Diff",
+                "category": "PreMerge Review",
+                "icon": "$(export)"
+            },
+            {
+                "command": "premerge-review.showReviewHistory",
+                "title": "Show Review History",
+                "category": "PreMerge Review",
+                "icon": "$(history)"
+            },
+            {
+                "command": "premerge-review.clearReviewResults",
+                "title": "Clear All Review Results",
+                "category": "PreMerge Review",
+                "icon": "$(trash)"
+            }
+        ],
+        "views": {
+            "premergeReviewSidebar": [
+                {
+                    "id": "premergeReviewView",
+                    "name": "PreMerge Review",
+                    "type": "webview",
+                    "icon": "./media/icon.png"
+                }
+            ]
         },
-        "premergeReview.intelligentRouting.enabled": {
-          "type": "boolean",
-          "default": false,
-          "markdownDescription": "Enable intelligent instruction routing using AI to automatically select relevant instructions based on code changes. ⚠️ **Warning:** This feature will use additional AI requests to analyze and route instructions, which may increase usage costs.",
-          "scope": "resource"
+        "configuration": {
+            "title": "PreMerge Review",
+            "properties": {
+                "premergeReview.instructionFiles": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "default": [
+                        ".github/instructions.md",
+                        ".github/review-instructions.md",
+                        "docs/review-guidelines.md"
+                    ],
+                    "description": "List of instruction file paths to read for review guidance. Paths are relative to workspace root. Extension will automatically load any existing files.",
+                    "scope": "resource"
+                },
+                "premergeReview.slack.webhookUrl": {
+                    "type": "string",
+                    "default": "",
+                    "description": "Slack Incoming Webhook URL (e.g., https://hooks.slack.com/services/YOUR/WEBHOOK/URL). Leave empty to disable Slack integration.",
+                    "scope": "resource"
+                },
+                "premergeReview.intelligentRouting.enabled": {
+                    "type": "boolean",
+                    "default": false,
+                    "markdownDescription": "Enable intelligent instruction routing using AI to automatically select relevant instructions based on code changes. ⚠️ **Warning:** This feature will use additional AI requests to analyze and route instructions, which may increase usage costs.",
+                    "scope": "resource"
+                },
+                "premergeReview.intelligentRouting.instructionFolderPath": {
+                    "type": "string",
+                    "default": ".github/instructions",
+                    "description": "Folder path containing instruction files for intelligent routing. All .md files in this folder will be scanned and indexed for AI-based instruction selection.",
+                    "scope": "resource"
+                }
+            }
         },
-        "premergeReview.intelligentRouting.instructionFolderPath": {
-          "type": "string",
-          "default": ".github/instructions",
-          "description": "Folder path containing instruction files for intelligent routing. All .md files in this folder will be scanned and indexed for AI-based instruction selection.",
-          "scope": "resource"
-        }
-      }
+        "menus": {
+            "explorer/context": [
+                {
+                    "when": "!explorerResourceIsFolder && resourceScheme == 'file'",
+                    "command": "fileReview.add",
+                    "group": "navigation@10"
+                }
+            ],
+            "commandPalette": [
+                {
+                    "command": "fileReview.add",
+                    "when": "true"
+                },
+                {
+                    "command": "fileReview.showList",
+                    "when": "true"
+                }
+            ]
+        },
+        "keybindings": [
+            {
+                "command": "fileReview.add",
+                "key": "ctrl+alt+r",
+                "mac": "cmd+alt+r",
+                "when": "explorerViewletVisible && filesExplorerFocus"
+            },
+            {
+                "command": "fileReview.showList",
+                "key": "ctrl+alt+l",
+                "mac": "cmd+alt+l"
+            }
+        ]
+    },
+    "scripts": {
+        "vscode:prepublish": "npm run compile && npm run build-webview",
+        "compile": "tsc -p ./",
+        "watch": "tsc -watch -p ./",
+        "build-webview": "node build-webview.js",
+        "pretest": "npm run compile && npm run lint",
+        "lint": "eslint src",
+        "test": "vscode-test"
+    },
+    "devDependencies": {
+        "@preact/preset-vite": "^2.10.2",
+        "@types/mocha": "^10.0.10",
+        "@types/node": "20.x",
+        "@types/react": "^19.1.8",
+        "@types/vscode": "^1.102.0",
+        "@types/vscode-webview": "^1.57.5",
+        "@typescript-eslint/eslint-plugin": "^8.31.1",
+        "@typescript-eslint/parser": "^8.31.1",
+        "@vscode/test-cli": "^0.0.11",
+        "@vscode/test-electron": "^2.5.2",
+        "esbuild": "^0.25.6",
+        "eslint": "^9.25.1",
+        "typescript": "^5.8.3"
+    },
+    "dependencies": {
+        "preact": "^10.26.9",
+        "simple-git": "^3.28.0"
     }
-  },
-  "scripts": {
-    "vscode:prepublish": "npm run compile && npm run build-webview",
-    "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./",
-    "build-webview": "node build-webview.js",
-    "pretest": "npm run compile && npm run lint",
-    "lint": "eslint src",
-    "test": "vscode-test"
-  },
-  "devDependencies": {
-    "@preact/preset-vite": "^2.10.2",
-    "@types/mocha": "^10.0.10",
-    "@types/node": "20.x",
-    "@types/react": "^19.1.8",
-    "@types/vscode": "^1.102.0",
-    "@types/vscode-webview": "^1.57.5",
-    "@typescript-eslint/eslint-plugin": "^8.31.1",
-    "@typescript-eslint/parser": "^8.31.1",
-    "@vscode/test-cli": "^0.0.11",
-    "@vscode/test-electron": "^2.5.2",
-    "esbuild": "^0.25.6",
-    "eslint": "^9.25.1",
-    "typescript": "^5.8.3"
-  },
-  "dependencies": {
-    "preact": "^10.26.9",
-    "simple-git": "^3.28.0"
-  }
 }

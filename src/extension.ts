@@ -1,12 +1,12 @@
 import * as vscode from 'vscode';
 import { SidebarProvider } from './sidebarProvider';
-import { GitService } from './gitService';
-import { ReviewDataService } from './reviewDataService';
-import { ReviewService } from './reviewService';
-import { SlackService } from './slackService';
-import { DiffViewerService } from './diffViewerService';
-import { ReviewHistoryView } from './reviewHistoryView';
-import { ReviewResultService } from './reviewResultService';
+import { GitService } from './services/gitService';
+import { ReviewDataService } from './services/reviewDataService';
+import { ReviewService } from './services/reviewService';
+import { SlackService } from './services/slackService';
+import { DiffViewerService } from './services/diffViewerService';
+import { ReviewHistoryView } from './services/reviewHistoryView';
+import { ReviewResultService } from './services/reviewResultService';
 
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
@@ -40,12 +40,6 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
 		vscode.window.registerWebviewViewProvider(SidebarProvider.viewType, provider)
 	);
-
-	// Register refresh git info command
-	const refreshGitCommand = vscode.commands.registerCommand('premerge-review.refreshGit', async () => {
-		// Git info is loaded on-demand by webview when needed
-		// This command is kept for compatibility with package.json command registration
-	});
 
 	// Register command to show current review data
 	const showReviewDataCommand = vscode.commands.registerCommand('premerge-review.showReviewData', () => {
@@ -371,18 +365,10 @@ export function activate(context: vscode.ExtensionContext) {
 		}
 	});
 
-	// The command has been defined in the package.json file
-	// Now provide the implementation of the command with registerCommand
-	// The commandId parameter must match the command field in package.json
-	const disposable = vscode.commands.registerCommand('premerge-review.helloWorld', () => {
-		// The code you place here will be executed every time your command is executed
-		// Display a message box to the user
-		vscode.window.showInformationMessage('Hello World from PreMerge Review!');
-	});
 
 	context.subscriptions.push(
-		disposable, 
-		refreshGitCommand, 
+		// disposable, 
+		// refreshGitCommand, 
 		showReviewDataCommand, 
 		testSlackCommand,
 		testLanguageModelsCommand,
