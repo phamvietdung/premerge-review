@@ -25,7 +25,7 @@ function App() {
                         style={{
                             padding: '0.4rem 0.6rem',
                             borderRadius: '4px',
-                            border: activeTab === 'premerge' ? '2px solid var(--vscode-list-activeSelectionBackground)' : '1px solid var(--vscode-button-border)',
+                            border: activeTab === 'premerge' ? '1px solid var(--vscode-list-activeSelectionBackground)' : '1px solid var(--vscode-button-border)',
                             background: activeTab === 'premerge' ? 'var(--vscode-button-background)' : 'transparent',
                             color: 'var(--vscode-button-foreground)',
                             cursor: 'pointer'
@@ -40,7 +40,7 @@ function App() {
                         style={{
                             padding: '0.4rem 0.6rem',
                             borderRadius: '4px',
-                            border: activeTab === 'file' ? '2px solid var(--vscode-list-activeSelectionBackground)' : '1px solid var(--vscode-button-border)',
+                            border: activeTab === 'file' ? '1px solid var(--vscode-list-activeSelectionBackground)' : '1px solid var(--vscode-button-border)',
                             background: activeTab === 'file' ? 'var(--vscode-button-background)' : 'transparent',
                             color: 'var(--vscode-button-foreground)',
                             cursor: 'pointer'

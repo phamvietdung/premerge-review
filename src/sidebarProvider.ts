@@ -15,6 +15,9 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
 
     private _view?: vscode.WebviewView;
     private _context?: vscode.ExtensionContext;
+    // In-memory caches that live for the duration of the VS Code session
+    private cachedChatModels: any[] | null = null;
+    private cachedGitInfo: any | null = null;
 
     constructor(
         private readonly _extensionUri: vscode.Uri,
@@ -340,21 +343,30 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                     }
                     break;
                 case MessageType.RequestGitInfo:
-                    // Send git info to webview
-                    const gitInfo = await this._gitService.getGitInfo();
-                    webviewView.webview.postMessage({
-                        type: 'gitInfo',
-                        data: gitInfo
-                    });
+                    // Send git info to webview (cached for the session)
+                    try {
+                        if (this.cachedGitInfo) {
+                            webviewView.webview.postMessage({ type: 'gitInfo', data: this.cachedGitInfo, cached: true });
+                        } else {
+                            const gitInfo = await this._gitService.getGitInfo();
+                            this.cachedGitInfo = gitInfo;
+                            webviewView.webview.postMessage({ type: 'gitInfo', data: gitInfo });
+                        }
+                    } catch (error) {
+                        console.error('Error getting git info:', error);
+                        webviewView.webview.postMessage({ type: 'gitInfo', data: null, error: error instanceof Error ? error.message : String(error) });
+                    }
                     break;
                 case MessageType.RequestChatModels:
                     // Send available chat models to webview
                     try {
-                        const chatModels = await this.getAvailableChatModels();
-                        webviewView.webview.postMessage({
-                            type: 'chatModels',
-                            data: chatModels
-                        });
+                        if (this.cachedChatModels) {
+                            webviewView.webview.postMessage({ type: 'chatModels', data: this.cachedChatModels, cached: true });
+                        } else {
+                            const chatModels = await this.getAvailableChatModels();
+                            this.cachedChatModels = chatModels;
+                            webviewView.webview.postMessage({ type: 'chatModels', data: chatModels });
+                        }
                     } catch (error) {
                         console.error('Error getting chat models:', error);
                         webviewView.webview.postMessage({
@@ -368,12 +380,12 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                     // Manually refresh chat models
                     try {
                         this.showInfoMessage('Refreshing AI models...');
+                        // Clear cache then re-load
+                        this.cachedChatModels = null;
                         const chatModels = await this.getAvailableChatModels();
-                        webviewView.webview.postMessage({
-                            type: 'chatModels',
-                            data: chatModels
-                        });
-                        this.showInfoMessage('AI models refreshed successfully!');
+                        this.cachedChatModels = chatModels;
+                        webviewView.webview.postMessage({ type: 'chatModels', data: chatModels });
+                        this.showInfoMessage('AI models refreshed successfully! (cached for this session)');
                     } catch (error) {
                         console.error('Error refreshing chat models:', error);
                         this.showErrorMessage(`Failed to refresh AI models: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -398,12 +410,15 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                     break;
                 case MessageType.RefreshGit:
                     // Simply re-request git info (branches may have changed)
-                    const refreshedGitInfo = await this._gitService.getGitInfo();
-                    webviewView.webview.postMessage({
-                        type: 'gitInfo',
-                        data: refreshedGitInfo
-                    });
-                    this.showInfoMessage('Git branches refreshed!');
+                    try {
+                        const refreshedGitInfo = await this._gitService.getGitInfo();
+                        this.cachedGitInfo = refreshedGitInfo;
+                        webviewView.webview.postMessage({ type: 'gitInfo', data: refreshedGitInfo });
+                        this.showInfoMessage('Git branches refreshed! (cached for this session)');
+                    } catch (error) {
+                        console.error('Error refreshing git info:', error);
+                        webviewView.webview.postMessage({ type: 'gitInfo', data: null, error: error instanceof Error ? error.message : String(error) });
+                    }
                     break;
                 case MessageType.CheckTargetBranch:
                     // Check if target branch needs pull
