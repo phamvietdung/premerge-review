@@ -2,6 +2,7 @@ import { h } from 'preact';
 
 import type { ReactNode } from 'react';
 import { useState, useEffect, useCallback, useRef } from 'preact/hooks';
+import { styles } from '../../styles';
 
 interface FileReviewTabProps {
   vscode: any;
@@ -24,145 +25,10 @@ type FolderContentsState = Record<string, DirectoryContents>;
 type FileLookupState = Record<string, WorkspaceItem>;
 
 export default function FileReviewTab({ vscode }: FileReviewTabProps) {
-  const [folders, setFolders] = useState<WorkspaceItem[]>([]);
-  const [rootFiles, setRootFiles] = useState<WorkspaceItem[]>([]);
-  const [expandedFolders, setExpandedFolders] = useState<FolderState>({});
-  const [contentsByFolder, setContentsByFolder] = useState<FolderContentsState>({});
-  const [loadingFolders, setLoadingFolders] = useState<boolean>(false);
-  const [loadingFiles, setLoadingFiles] = useState<FolderLoadingState>({});
-  const [selectedFilePaths, setSelectedFilePaths] = useState<Record<string, boolean>>({});
+
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const fileLookupRef = useRef<FileLookupState>({});
-
-  const requestWorkspaceData = useCallback(() => {
-    if (!vscode) {
-      return;
-    }
-    setLoadingFolders(true);
-    vscode.postMessage({ type: 'requestWorkspaceFolders' });
-  }, [vscode]);
-
-  useEffect(() => {
-    requestWorkspaceData();
-
-    const handleMessage = (event: MessageEvent) => {
-      const message = event.data;
-
-      if (message.type === 'workspaceFolders') {
-        const data = message.data ?? {};
-        const directories: WorkspaceItem[] = Array.isArray(data.directories) ? data.directories : [];
-        const files: WorkspaceItem[] = Array.isArray(data.files) ? data.files : [];
-        setFolders(directories);
-        setRootFiles(files);
-        setLoadingFolders(false);
-        setErrorMessage(null);
-
-        const next = { ...fileLookupRef.current };
-        files.forEach(file => {
-          next[file.path] = file;
-        });
-        fileLookupRef.current = next;
-      }
-
-      if (message.type === 'workspaceFoldersError') {
-        setLoadingFolders(false);
-        setErrorMessage(message.error || 'Unable to load workspace folders.');
-      }
-
-      if (message.type === 'filesInFolder') {
-        const folderPath = message.folderPath as string;
-        const data = message.data ?? {};
-        const directories: WorkspaceItem[] = Array.isArray(data.directories) ? data.directories : [];
-        const files: WorkspaceItem[] = Array.isArray(data.files) ? data.files : [];
-
-        if (message.error) {
-          setErrorMessage(message.error);
-        } else {
-          setErrorMessage(null);
-        }
-
-        setContentsByFolder(prev => ({
-          ...prev,
-          [folderPath]: {
-            directories,
-            files
-          }
-        }));
-
-        const next = { ...fileLookupRef.current };
-        files.forEach(file => {
-          next[file.path] = file;
-        });
-        fileLookupRef.current = next;
-
-        setLoadingFiles(prev => ({
-          ...prev,
-          [folderPath]: false
-        }));
-      }
-
-      if (message.type === 'fileReviewSubmitted') {
-        const filePath = message.filePath as string;
-        const lookup = fileLookupRef.current;
-        if (filePath && lookup[filePath]) {
-          setStatusMessage(`Opened file for review: ${lookup[filePath].relativePath}`);
-        } else if (filePath) {
-          setStatusMessage(`Opened file for review: ${filePath}`);
-        } else {
-          setStatusMessage('Opened file for review.');
-        }
-      }
-
-      if (message.type === 'fileReviewError') {
-        setStatusMessage(null);
-        setErrorMessage(message.error || 'Unable to open the selected file.');
-      }
-    };
-
-    window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
-  }, [requestWorkspaceData]);
-
-  const toggleFolder = useCallback((folder: WorkspaceItem) => {
-    const isExpanded = !!expandedFolders[folder.path];
-
-    setExpandedFolders(prev => ({
-      ...prev,
-      [folder.path] : !isExpanded
-    }));
-
-    if (!isExpanded && !contentsByFolder[folder.path]) {
-      setLoadingFiles(prev => ({
-        ...prev,
-        [folder.path]: true
-      }));
-
-      if (vscode) {
-        vscode.postMessage({ type: 'requestFilesInFolder', folderPath: folder.path });
-      }
-    }
-  }, [expandedFolders, contentsByFolder, vscode]);
-
-  const handleFileSelect = useCallback((filePath: string) => {
-    setSelectedFilePaths(prev => ({ ...prev, [filePath]: !prev[filePath] }));
-    setStatusMessage(null);
-  }, []);
-
-  const handleSubmit = useCallback(() => {
-    const selected = Object.keys(selectedFilePaths).filter(k => selectedFilePaths[k]);
-    if (selected.length === 0) {
-      setStatusMessage('Please choose one or more files before submitting.');
-      return;
-    }
-
-    setStatusMessage('Submitting selected files for review...');
-    setErrorMessage(null);
-
-    if (vscode) {
-      vscode.postMessage({ type: 'submitFilesReview', filePaths: selected });
-    }
-  }, [selectedFilePaths, vscode]);
+  const [addedFiles, setAddedFiles] = useState<WorkspaceItem[]>([]);
 
   const WHITELIST = ['cs', 'ts', 'tsx', 'js', 'php', 'java'];
 
@@ -173,79 +39,69 @@ export default function FileReviewTab({ vscode }: FileReviewTabProps) {
     return WHITELIST.includes(ext);
   };
 
-  const renderFileOption = (file: WorkspaceItem): ReactNode => {
-    if (!isWhitelisted(file)) return null;
+  const removeAddedFile = useCallback((filePath: string) => {
+    setAddedFiles(prev => prev.filter(f => f.path !== filePath));
+    setStatusMessage(null);
+  }, []);
 
-    const checked = !!selectedFilePaths[file.path];
+  const clearAddedFiles = useCallback(() => {
+    setAddedFiles([]);
+    setStatusMessage(null);
+  }, []);
 
-    return (
-      <li key={file.path} style={{ marginBottom: '0.4rem' }}>
-        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-          <input
-            type="checkbox"
-            name="file-review-selection"
-            value={file.path}
-            checked={checked}
-            onChange={() => handleFileSelect(file.path)}
-          />
-          <span>{file.relativePath}</span>
-        </label>
-      </li>
-    ) as unknown as ReactNode;
-  };
+  // Listen for messages from the extension (e.g., fileAdded)
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
 
-  const renderFolderRow = (folder: WorkspaceItem, depth: number = 0): ReactNode => {
-    const isExpanded = !!expandedFolders[folder.path];
-    const contents = contentsByFolder[folder.path];
-    const paddingLeft = depth * 16;
+      console.log("receive event", event)
 
-    return (
-      <li key={folder.path} style={{ marginBottom: '0.75rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', paddingLeft }}>
-          <button
-            style={{
-              border: 'none',
-              background: 'transparent',
-              color: 'var(--vscode-foreground)',
-              cursor: 'pointer',
-              fontSize: '0.9rem',
-              padding: 0,
-              width: '2rem',
-              textAlign: 'left'
-            }}
-            onClick={() => toggleFolder(folder)}
-            aria-label={isExpanded ? 'Collapse folder' : 'Expand folder'}
-            aria-expanded={isExpanded}
-          >
-            {isExpanded ? '▾' : '▸'}
-          </button>
-          <span style={{ fontWeight: 600 }}>{folder.relativePath || folder.name}</span>
-        </div>
+      const message = event.data || {};
+      if (message.type === 'fileAdded') {
+        const filePath = message.filePath as string;
+        if (!filePath) return;
 
-        {isExpanded && (
-          <div style={{ marginLeft: paddingLeft + 16, marginTop: '0.5rem' }}>
-            {loadingFiles[folder.path] && <div>Loading files...</div>}
+        setAddedFiles(prev => {
+          if (prev.find(p => p.path === filePath)) return prev;
 
-            {!loadingFiles[folder.path] && contents && contents.directories.length === 0 && contents.files.length === 0 && (
-              <div>No entries found in this folder.</div>
-            )}
+          const parts = filePath.split(/\\|\//);
+          const name = parts.pop() || filePath;
+          const dir = parts.join('/');
+          const relative = dir ? `${dir}/${name}` : name;
 
-            {!loadingFiles[folder.path] && contents && contents.directories.length > 0 && (
-              <ul style={{ listStyle: 'none', paddingLeft: 0 }}>
-                {contents.directories.map(childFolder => renderFolderRow(childFolder, depth + 1))}
-              </ul>
-            )}
+          const item: WorkspaceItem = { name, path: filePath, relativePath: relative };
+          setStatusMessage(`Added file to review list: ${name}`);
+          return [...prev, item];
+        });
+      }
 
-            {!loadingFiles[folder.path] && contents && contents.files.length > 0 && (
-              <ul style={{ listStyle: 'none', paddingLeft: 0 }}>
-                {contents.files.map(file => renderFileOption(file))}
-              </ul>
-            )}
-          </div>
-        )}
-      </li>
-    ) as unknown as ReactNode;
-  };
+      if (message.type === 'fileReviewSubmitted') {
+        const filePath = message.filePath as string;
+        setStatusMessage(filePath ? `Opened file for review: ${filePath}` : 'Opened file for review');
+      }
+
+      if (message.type === 'fileReviewError') {
+        setErrorMessage(message.error || 'Unable to open the selected file.');
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, []);
+
+  const handleSubmit = useCallback(() => {
+    if (addedFiles.length === 0) {
+      setStatusMessage('Please add one or more files before submitting.');
+      return;
+    }
+
+    const filePaths = addedFiles.map(f => f.path);
+    setStatusMessage(`Submitting ${filePaths.length} file(s) for review...`);
+    setErrorMessage(null);
+
+    if (vscode) {
+      vscode.postMessage({ type: 'submitFilesReview', filePaths });
+    }
+  }, [addedFiles, vscode]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -262,42 +118,34 @@ export default function FileReviewTab({ vscode }: FileReviewTabProps) {
         </div>
       )}
 
-      {rootFiles.length > 0 && (
+      {/* If there are added files from the command, show them and hide the folder tree */}
+      {addedFiles.length > 0 && (
         <div>
-          <h4 style={{ margin: '0 0 0.5rem 0' }}>Workspace root files</h4>
+          <h4 style={{ margin: '0 0 0.5rem 0' }}>Files to review</h4>
           <ul style={{ listStyle: 'none', paddingLeft: 0, margin: 0 }}>
-            {rootFiles.map(file => renderFileOption(file))}
+            {addedFiles.map(file => (
+              <li key={file.path} style={{ marginBottom: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  <span style={{ fontWeight: 600 }}>{file.name}</span>
+                  <span style={{ fontSize: '0.85rem', color: 'var(--vscode-descriptionForeground)' }}>{file.relativePath}</span>
+                </div>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <button onClick={() => removeAddedFile(file.path)} style={{ border: 'none', background: 'transparent', color: 'var(--vscode-foreground)', cursor: 'pointer' }} aria-label="Remove file">Remove</button>
+                </div>
+              </li>
+            ))}
           </ul>
+          <div style={{ marginTop: '0.5rem' }}>
+            <button onClick={clearAddedFiles} style={{ border: 'none', background: '#ef4444', color: '#fff', padding: '0.4rem 0.8rem', borderRadius: '4px', cursor: 'pointer' }}>Clear list</button>
+          </div>
         </div>
       )}
 
-      <div>
-        {loadingFolders && <div>Loading workspace folders...</div>}
-        {!loadingFolders && folders.length === 0 && (
-          <div>No folders found in the current workspace.</div>
-        )}
-        {!loadingFolders && folders.length > 0 && (
-          <ul style={{ listStyle: 'none', paddingLeft: 0, margin: 0 }}>
-            {folders.map(folder => renderFolderRow(folder, 0))}
-          </ul>
-        )}
-      </div>
-
       <button
-        style={{
-          alignSelf: 'flex-start',
-          padding: '0.6rem 1.2rem',
-          fontSize: '0.95rem',
-          borderRadius: '4px',
-          border: 'none',
-          cursor: Object.keys(selectedFilePaths).some(k => selectedFilePaths[k]) ? 'pointer' : 'not-allowed',
-          background: Object.keys(selectedFilePaths).some(k => selectedFilePaths[k]) ? '#22c55e' : '#3a3a3a',
-          color: Object.keys(selectedFilePaths).some(k => selectedFilePaths[k]) ? '#fff' : '#888'
-        }}
-        onClick={handleSubmit}
-        disabled={!Object.keys(selectedFilePaths).some(k => selectedFilePaths[k])}
+        style={styles.button}
+        disabled={!(addedFiles.length > 0)}
       >
-        Submit for review
+        {addedFiles.length > 0 ? `Submit ${addedFiles.length} file(s) for review` : 'Submit for review'}
       </button>
 
       {statusMessage && (

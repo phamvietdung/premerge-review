@@ -31,6 +31,8 @@ export enum MessageType {
     Settings = 'settings',
     TargetBranchStatus = 'targetBranchStatus',
     ReviewDataCleared = 'reviewDataCleared',
+    // File add from extension -> webview
+    FileAdded = 'fileAdded',
 }
 
 export default MessageType;

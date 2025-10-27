@@ -41,6 +41,41 @@ export function activate(context: vscode.ExtensionContext) {
 		vscode.window.registerWebviewViewProvider(SidebarProvider.viewType, provider)
 	);
 
+	// Command to add a file path into the FileReviewTab list from anywhere
+	const addFileToReviewCommand = vscode.commands.registerCommand('fileReview.add', async (filePathArg?: any) => {
+		try {
+			let filePath: string | undefined;
+
+			// If command invoked from explorer/context it may pass a Uri or an object with fsPath
+			if (typeof filePathArg === 'string') {
+				filePath = filePathArg;
+			} else if (filePathArg && typeof filePathArg === 'object') {
+				// vscode.Uri
+				if (filePathArg.fsPath && typeof filePathArg.fsPath === 'string') {
+					filePath = filePathArg.fsPath;
+				} else if (filePathArg.path && typeof filePathArg.path === 'string') {
+					filePath = filePathArg.path;
+				}
+			}
+
+			if (!filePath) {
+				filePath = await vscode.window.showInputBox({ prompt: 'Enter full file path to add to File Review list' });
+			}
+
+			if (!filePath) {
+				vscode.window.showInformationMessage('No file path provided');
+				return;
+			}
+
+			// Ask provider to post message (or queue it)
+			provider.addFileToReview(filePath);
+			vscode.window.showInformationMessage(`Added file to review list: ${filePath}`);
+		} catch (error) {
+			console.error('Error handling fileReview.add command:', error);
+			vscode.window.showErrorMessage('Failed to add file to review list');
+		}
+	});
+
 	// Register command to show current review data
 	const showReviewDataCommand = vscode.commands.registerCommand('premerge-review.showReviewData', () => {
 		const reviewDataService = ReviewDataService.getInstance();
@@ -369,6 +404,7 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
 		// disposable, 
 		// refreshGitCommand, 
+		addFileToReviewCommand,
 		showReviewDataCommand, 
 		testSlackCommand,
 		testLanguageModelsCommand,

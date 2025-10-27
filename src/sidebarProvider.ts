@@ -18,6 +18,8 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
     // In-memory caches that live for the duration of the VS Code session
     private cachedChatModels: any[] | null = null;
     private cachedGitInfo: any | null = null;
+    // Pending files to add to webview list (queued if webview not yet resolved)
+    private pendingAddedFiles: string[] = [];
 
     constructor(
         private readonly _extensionUri: vscode.Uri,
@@ -37,6 +39,26 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                 });
             }
         }, timeout);
+    }
+
+    /**
+     * Add a file path to the FileReviewTab list. If the webview is not ready yet,
+     * queue it and flush when available.
+     */
+    public addFileToReview(filePath: string) {
+        if (!filePath) return;
+
+        if (this._view && this._view.webview) {
+            try {
+                this._view.webview.postMessage({ type: MessageType.FileAdded, filePath });
+            } catch (err) {
+                console.error('Failed to post fileAdded message to webview:', err);
+                // fall back to queue
+                this.pendingAddedFiles.push(filePath);
+            }
+        } else {
+            this.pendingAddedFiles.push(filePath);
+        }
     }
 
     /**
@@ -69,7 +91,12 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
 
         webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
 
+        
+
         webviewView.webview.onDidReceiveMessage(async data => {
+
+            console.log(data.type, data);
+
             switch (data.type) {
                 case MessageType.RequestBranchCommits:
                     // Send branch commits to webview
@@ -574,6 +601,20 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                     break;
             }
         });
+        
+
+        // Flush any pending file-add requests that arrived before the webview was ready
+        if (this.pendingAddedFiles.length > 0) {
+            for (const filePath of this.pendingAddedFiles) {
+                try {
+                    webviewView.webview.postMessage({ type: MessageType.FileAdded, filePath });
+                } catch (err) {
+                    console.error('Failed to post pending fileAdded message:', err);
+                }
+            }
+            this.pendingAddedFiles = [];
+        }
+
     }
 
     /**
