@@ -2,7 +2,7 @@ import { h } from 'preact';
 
 import type { ReactNode } from 'react';
 import { useState, useEffect, useCallback, useRef } from 'preact/hooks';
-import { styles } from '../../styles';
+import { styles } from '../styles';
 
 interface FileReviewTabProps {
   vscode: any;
@@ -18,12 +18,6 @@ interface DirectoryContents {
   directories: WorkspaceItem[];
   files: WorkspaceItem[];
 }
-
-type FolderState = Record<string, boolean>;
-type FolderLoadingState = Record<string, boolean>;
-type FolderContentsState = Record<string, DirectoryContents>;
-type FileLookupState = Record<string, WorkspaceItem>;
-
 export default function FileReviewTab({ vscode }: FileReviewTabProps) {
 
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
@@ -31,6 +25,14 @@ export default function FileReviewTab({ vscode }: FileReviewTabProps) {
   const [addedFiles, setAddedFiles] = useState<WorkspaceItem[]>([]);
 
   const WHITELIST = ['cs', 'ts', 'tsx', 'js', 'php', 'java'];
+
+  const searchFile = (key: string) => {
+    const files = vscode.workspace.findFiles('**/{}*')
+
+    files.forEach((file: any) => {
+      console.log(file.fsPath);
+    });
+  }
 
   const isWhitelisted = (file: WorkspaceItem) => {
     const parts = file.name.split('.');
@@ -110,6 +112,9 @@ export default function FileReviewTab({ vscode }: FileReviewTabProps) {
         <p style={{ margin: 0, color: 'var(--vscode-descriptionForeground)' }}>
           Browse folders, choose the file you want to review, then submit to open it.
         </p>
+        <input onChange={(e) => {
+          console.log(e.target.value)
+        }} />
       </div>
 
       {errorMessage && (

@@ -1,6 +1,6 @@
 import { render } from 'preact';
 import { useState, useRef, useEffect } from 'preact/hooks';
-import { styles } from '../../styles';
+import { styles } from '../styles';
 
 //@ts-ignore
 export function SearchableSelect({ options, value, onChange, placeholder = "Select..." }) {

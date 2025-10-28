@@ -1,4 +1,4 @@
-import { styles } from "../../styles";
+import { styles } from "../styles";
 import { SearchableSelect } from "../components/SearchableSelect";
 import { useState, useEffect, useCallback, useRef } from 'preact/hooks';
 import { ChatModel } from "../../models";

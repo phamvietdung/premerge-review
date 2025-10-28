@@ -1,7 +1,7 @@
 import { render } from 'preact';
 import { useState, useRef, useEffect } from 'preact/hooks';
 import FileReviewTab from './tabs/FileReviewTab';
-import { styles } from '../styles'
+import { styles } from './styles'
 import { CommitReviewTab } from './tabs/CommitReviewTab';
 
 declare global {
@@ -14,6 +14,22 @@ function App() {
 
     const [activeTab, setActiveTab] = useState<'premerge' | 'file'>('premerge');
 
+    useEffect(() => {
+        // Listen for git info response
+        const handleMessage = (event: any) => {
+            const message = event.data;
+
+            console.log("App.tsx Receive Event", message.type, message.data);
+
+            if (message.type === 'gitInfo') {
+
+            }
+        };
+
+        window.addEventListener('message', handleMessage);
+        return () => window.removeEventListener('message', handleMessage);
+    }, []);
+
 
     return (
         <div style={styles.container as any}>
@@ -22,14 +38,7 @@ function App() {
                     <button
                         onClick={() => setActiveTab('premerge')}
                         title="Switch to review commit"
-                        style={{
-                            padding: '0.4rem 0.6rem',
-                            borderRadius: '4px',
-                            border: activeTab === 'premerge' ? '1px solid var(--vscode-list-activeSelectionBackground)' : '1px solid var(--vscode-button-border)',
-                            background: activeTab === 'premerge' ? 'var(--vscode-button-background)' : 'transparent',
-                            color: 'var(--vscode-button-foreground)',
-                            cursor: 'pointer'
-                        } as any}
+                        style={activeTab === 'premerge' ? styles.tabButtonActive as any : styles.tabButtonDeactive as any}
                     >
                         Review Commit
                     </button>
@@ -37,14 +46,7 @@ function App() {
                     <button
                         onClick={() => setActiveTab('file')}
                         title="Switch to review file"
-                        style={{
-                            padding: '0.4rem 0.6rem',
-                            borderRadius: '4px',
-                            border: activeTab === 'file' ? '1px solid var(--vscode-list-activeSelectionBackground)' : '1px solid var(--vscode-button-border)',
-                            background: activeTab === 'file' ? 'var(--vscode-button-background)' : 'transparent',
-                            color: 'var(--vscode-button-foreground)',
-                            cursor: 'pointer'
-                        } as any}
+                        style={activeTab === 'file' ? styles.tabButtonActive as any : styles.tabButtonDeactive as any}
                     >
                         Review File
                     </button>
@@ -56,9 +58,7 @@ function App() {
             )}
 
             {activeTab === 'file' && (
-                <div style={{ marginTop: '1rem' }}>
-                    <FileReviewTab vscode={vscode} />
-                </div>
+                <FileReviewTab vscode={vscode} />
             )}
 
         </div>

@@ -46,6 +46,12 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
      * queue it and flush when available.
      */
     public addFileToReview(filePath: string) {
+
+        if(this._view)
+            this._view.webview.postMessage({
+                type: MessageType.OpenSettings
+            });
+
         if (!filePath) return;
 
         if (this._view && this._view.webview) {

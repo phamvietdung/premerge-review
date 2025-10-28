@@ -288,4 +288,20 @@ export const styles = {
         color: 'var(--vscode-button-secondaryForeground)',
         border: '1px solid var(--vscode-button-border)',
     },
+    tabButtonActive : {
+        padding: '0.4rem 0.6rem',
+        borderRadius: '4px',
+        color: 'var(--vscode-button-foreground)',
+        cursor: 'pointer',
+        border: '1px solid var(--vscode-list-activeSelectionBackground)',
+        background : 'var(--vscode-button-background)'
+    },
+    tabButtonDeactive : {
+        padding: '0.4rem 0.6rem',
+        borderRadius: '4px',
+        color: 'var(--vscode-foreground)',
+        cursor: 'pointer',
+        border: '1px solid var(--vscode-button-border)',
+        background : 'transparent'
+    }
 };
