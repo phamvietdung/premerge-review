@@ -8,81 +8,63 @@ interface FileReviewTabProps {
   vscode: any;
 }
 
-interface WorkspaceItem {
+type FileChunk = {
   name: string;
+  text: string;
+  startLine: number;
+  endLine: number;
+};
+
+type SelectedFile = {
   path: string;
-  relativePath: string;
-}
+  language?: string;
+  chunks?: FileChunk[];
+};
 
-interface DirectoryContents {
-  directories: WorkspaceItem[];
-  files: WorkspaceItem[];
-}
+// NOTE: This component assumes the extension side of the webview will
+// accept/emit the following messages (reasonable assumptions):
+// - postMessage({ type: 'searchFiles', query }) -> window posts back { type: 'searchFilesResult', results: [{ path }] }
+// - postMessage({ type: 'requestFileContent', path }) -> window posts back { type: 'fileContent', path, content }
+// - postMessage({ type: 'createReview', data }) to create a review (we follow CommitReviewTab pattern)
+
 export default function FileReviewTab({ vscode }: FileReviewTabProps) {
+  const [query, setQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<string[]>([]);
+  const [selectedFiles, setSelectedFiles] = useState<SelectedFile[]>([]);
+  const [loadingSearch, setLoadingSearch] = useState(false);
+  const [loadingFiles, setLoadingFiles] = useState<Record<string, boolean>>({});
+  const searchedByEnterRef = useRef(false);
 
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [addedFiles, setAddedFiles] = useState<WorkspaceItem[]>([]);
-
-  const WHITELIST = ['cs', 'ts', 'tsx', 'js', 'php', 'java'];
-
-  const searchFile = (key: string) => {
-    const files = vscode.workspace.findFiles('**/{}*')
-
-    files.forEach((file: any) => {
-      console.log(file.fsPath);
-    });
-  }
-
-  const isWhitelisted = (file: WorkspaceItem) => {
-    const parts = file.name.split('.');
-    if (parts.length === 1) return false;
-    const ext = parts[parts.length - 1].toLowerCase();
-    return WHITELIST.includes(ext);
-  };
-
-  const removeAddedFile = useCallback((filePath: string) => {
-    setAddedFiles(prev => prev.filter(f => f.path !== filePath));
-    setStatusMessage(null);
-  }, []);
-
-  const clearAddedFiles = useCallback(() => {
-    setAddedFiles([]);
-    setStatusMessage(null);
-  }, []);
-
-  // Listen for messages from the extension (e.g., fileAdded)
   useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
+    const handleMessage = (event: any) => {
+      const message = event.data;
+      if (!message || !message.type) return;
 
-      console.log("receive event", event)
+      if (message.type === 'searchFilesResult') {
+        // results: array of file paths
+        const results = Array.isArray(message.results) ? message.results : [];
+        setSearchResults(results);
+        setLoadingSearch(false);
 
-      const message = event.data || {};
-      if (message.type === 'fileAdded') {
-        const filePath = message.filePath as string;
-        if (!filePath) return;
+        // If this search was triggered by Enter and exactly one match, auto-add it.
+        if (searchedByEnterRef.current && results.length === 1) {
+          addFile(results[0]);
+          setQuery('');
+          setSearchResults([]);
+        }
+        searchedByEnterRef.current = false;
+      } else if (message.type === 'fileContent') {
+        const { path, content } = message;
+        // simple language detection by extension
+  const lang = path.endsWith('.cs') ? 'csharp' : undefined;
+  // Temporarily treat whole file as one chunk; splitting logic will be added later
+  const chunks = [{ name: path, text: content, startLine: 1, endLine: content.split('\n').length }];
 
-        setAddedFiles(prev => {
-          if (prev.find(p => p.path === filePath)) return prev;
-
-          const parts = filePath.split(/\\|\//);
-          const name = parts.pop() || filePath;
-          const dir = parts.join('/');
-          const relative = dir ? `${dir}/${name}` : name;
-
-          const item: WorkspaceItem = { name, path: filePath, relativePath: relative };
-          setStatusMessage(`Added file to review list: ${name}`);
-          return [...prev, item];
-        });
-      }
-
-      if (message.type === 'fileReviewSubmitted') {
-        const filePath = message.filePath as string;
-        setStatusMessage(filePath ? `Opened file for review: ${filePath}` : 'Opened file for review');
-      }
-
-      if (message.type === 'fileReviewError') {
-        setErrorMessage(message.error || 'Unable to open the selected file.');
+        setSelectedFiles(prev => prev.map(f => f.path === path ? { ...f, language: lang, chunks } : f));
+        setLoadingFiles(prev => ({ ...prev, [path]: false }));
+      } else if (message.type === 'reviewCreated') {
+        // extension signaled review created — clear selection
+        setSelectedFiles([]);
       }
     };
 
@@ -90,74 +72,127 @@ export default function FileReviewTab({ vscode }: FileReviewTabProps) {
     return () => window.removeEventListener('message', handleMessage);
   }, []);
 
-  const handleSubmit = useCallback(() => {
-    if (addedFiles.length === 0) {
-      setStatusMessage('Please add one or more files before submitting.');
-      return;
-    }
+  const runSearch = useCallback((q: string) => {
+    const tq = (q || '').trim();
+    if (!tq) return;
+    setLoadingSearch(true);
+    setSearchResults([]);
+    // Delegate search to extension (use VS Code workspace search there)
+    vscode.postMessage({ type: 'searchFiles', query: tq });
+  }, [vscode]);
 
-    const filePaths = addedFiles.map(f => f.path);
-    setStatusMessage(`Submitting ${filePaths.length} file(s) for review...`);
-    setErrorMessage(null);
+  const addFile = useCallback((path: string) => {
+    if (!path) return;
+    // avoid duplicates
+    setSelectedFiles(prev => {
+      if (prev.find(p => p.path === path)) return prev;
+      return [...prev, { path }];
+    });
 
-    if (vscode) {
-      vscode.postMessage({ type: 'submitFilesReview', filePaths });
+    // request file content for chunking and analysis
+    setLoadingFiles(prev => ({ ...prev, [path]: true }));
+    vscode.postMessage({ type: 'requestFileContent', path });
+  }, [vscode]);
+
+  const removeFile = useCallback((path: string) => {
+    setSelectedFiles(prev => prev.filter(p => p.path !== path));
+  }, []);
+
+  const handleKeyDown = (e: KeyboardEvent) => {
+    // If user presses Enter in the input, perform search and if single match, add it
+    if ((e as any).key === 'Enter') {
+      e.preventDefault();
+      const q = query.trim();
+      if (!q) return;
+      // mark that this search was initiated by pressing Enter so we can auto-add if there's a single result
+      searchedByEnterRef.current = true;
+      runSearch(q);
     }
-  }, [addedFiles, vscode]);
+  };
+
+  // (Intentionally no automatic add on plain result update — only add when search was triggered by Enter.)
+
+  const handleSelectResult = (path: string) => {
+    addFile(path);
+    setQuery('');
+    setSearchResults([]);
+  };
+
+  const getBaseName = (p: string) => {
+    if (!p) return '';
+    const parts = p.split(/[\\\/]/);
+    return parts[parts.length - 1] || p;
+  };
+
+  const handleSubmitReview = () => {
+    // Build review payload. For each selected file include path and chunks (if available)
+    const payload = selectedFiles.map(f => ({ path: f.path, language: f.language || null, chunks: f.chunks || null }));
+    vscode.postMessage({ type: 'createReview', data: { files: payload } });
+  };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-      <div>
-        <h3 style={{ fontSize: '1.1rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>File Review</h3>
-        <p style={{ margin: 0, color: 'var(--vscode-descriptionForeground)' }}>
-          Browse folders, choose the file you want to review, then submit to open it.
-        </p>
-        <input onChange={(e) => {
-          console.log(e.target.value)
-        }} />
+    <div>
+      <label style={styles.label as any}>Add file by name (paste filename and press Enter)</label>
+      <input
+        style={{ width: '100%', padding: '0.5rem', boxSizing: 'border-box' } as any}
+        value={query}
+        onInput={(e: any) => setQuery(e.target.value)}
+        onKeyDown={(e: any) => handleKeyDown(e)}
+        placeholder="e.g. Controllers/UserController.cs or Program.cs"
+      />
+
+      {loadingSearch && <div style={{ marginTop: '0.5rem' as any }}>🔍 Searching workspace...</div>}
+
+      {searchResults.length > 0 && (
+        <div style={{ marginTop: '0.5rem' as any }}>
+          <div style={{ fontSize: '0.85rem', marginBottom: '0.25rem' as any }}>
+            Matches:
+          </div>
+          <ul style={{ listStyle: 'none', padding: 0, margin: 0, maxHeight: '60vh', minHeight: '400px', overflowY: 'auto' } as any}>
+            {searchResults.map((p) => (
+                <li key={p} style={{ marginBottom: '0.25rem' as any }}>
+                  <button style={{ ...styles.tabButtonDeactive, width: '100%', textAlign: 'left', padding: '0.5rem' } as any} onClick={() => handleSelectResult(p)}>
+                    <div style={{ fontSize: '0.95rem', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } as any}>{getBaseName(p)}</div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--vscode-descriptionForeground)', marginTop: '0.15rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } as any}>{p}</div>
+                  </button>
+                </li>
+              ))}
+          </ul>
+        </div>
+      )}
+
+      <div style={{ marginTop: '1rem' as any }}>
+        <div style={{ fontWeight: 600 } as any}>Files to review</div>
+        {selectedFiles.length === 0 && <div style={{ ...styles.warning as any, marginTop: '0.5rem' }}>No files selected</div>}
+        <ul style={{ listStyle: 'none', padding: 0, marginTop: '0.5rem' as any }}>
+          {selectedFiles.map(f => (
+            <li key={f.path} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' } as any}>
+              <div style={{ flex: '1 1 auto', minWidth: 0 } as any}>
+                <div style={{ fontSize: '0.95rem', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } as any}>{getBaseName(f.path)}</div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--vscode-descriptionForeground)', marginTop: '0.15rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } as any}>{f.path}</div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--vscode-descriptionForeground)', marginTop: '0.25rem' } as any}>
+                  {loadingFiles[f.path] ? 'Loading file...' : (f.chunks ? `${f.chunks.length} chunk(s)` : 'Waiting for content')}
+                </div>
+              </div>
+              <div style={{ flex: '0 0 auto' } as any}>
+                <button style={{ ...styles.clearButton } as any} onClick={() => removeFile(f.path)}>Remove</button>
+              </div>
+            </li>
+          ))}
+        </ul>
       </div>
 
-      {errorMessage && (
-        <div style={{ background: '#ff000022', color: '#ff6666', padding: '0.5rem', borderRadius: '4px', border: '1px solid #ff6666' }}>
-          {errorMessage}
-        </div>
-      )}
-
-      {/* If there are added files from the command, show them and hide the folder tree */}
-      {addedFiles.length > 0 && (
-        <div>
-          <h4 style={{ margin: '0 0 0.5rem 0' }}>Files to review</h4>
-          <ul style={{ listStyle: 'none', paddingLeft: 0, margin: 0 }}>
-            {addedFiles.map(file => (
-              <li key={file.path} style={{ marginBottom: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ display: 'flex', flexDirection: 'column' }}>
-                  <span style={{ fontWeight: 600 }}>{file.name}</span>
-                  <span style={{ fontSize: '0.85rem', color: 'var(--vscode-descriptionForeground)' }}>{file.relativePath}</span>
-                </div>
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  <button onClick={() => removeAddedFile(file.path)} style={{ border: 'none', background: 'transparent', color: 'var(--vscode-foreground)', cursor: 'pointer' }} aria-label="Remove file">Remove</button>
-                </div>
-              </li>
-            ))}
-          </ul>
-          <div style={{ marginTop: '0.5rem' }}>
-            <button onClick={clearAddedFiles} style={{ border: 'none', background: '#ef4444', color: '#fff', padding: '0.4rem 0.8rem', borderRadius: '4px', cursor: 'pointer' }}>Clear list</button>
-          </div>
-        </div>
-      )}
-
-      <button
-        style={styles.button}
-        disabled={!(addedFiles.length > 0)}
-      >
-        {addedFiles.length > 0 ? `Submit ${addedFiles.length} file(s) for review` : 'Submit for review'}
-      </button>
-
-      {statusMessage && (
-        <div style={{ fontSize: '0.9rem', color: 'var(--vscode-descriptionForeground)' }}>
-          {statusMessage}
-        </div>
-      )}
+      <div style={{ marginTop: '1rem' as any }}>
+        <button
+          style={{ ...styles.button } as any}
+          onClick={handleSubmitReview}
+          disabled={selectedFiles.length === 0}
+        >
+          Submit Review
+        </button>
+      </div>
     </div>
   );
 }
+
+// Note: C# chunking logic removed temporarily. We will review whole files for now and implement splitting later.

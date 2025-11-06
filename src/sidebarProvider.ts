@@ -3,6 +3,8 @@ import { getNonce } from './utils';
 import * as path from 'path';
 import fg from 'fast-glob';
 import { GitService } from './services/gitService';
+import * as copilotChatService from './services/copilotChatService';
+import { IntelligentRoutingService } from './services/intelligentRoutingService';
 import { ReviewDataService } from './services/reviewDataService';
 import { ReviewService } from './services/reviewService';
 import { DiffViewerService } from './services/diffViewerService';
@@ -104,6 +106,61 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
             console.log(data.type, data);
 
             switch (data.type) {
+                case 'searchFiles':
+                    try {
+                        const q = (data.query || '').toString().trim();
+                        const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+                        if (!workspaceRoot) {
+                            webviewView.webview.postMessage({ type: 'searchFilesResult', results: [], error: 'No workspace open' });
+                            break;
+                        }
+
+                        if (!q) {
+                            webviewView.webview.postMessage({ type: 'searchFilesResult', results: [] });
+                            break;
+                        }
+
+                        // Use fast-glob to perform a fuzzy search in the workspace. Limit results to 200.
+                        // Escape special glob chars in query by keeping it literal inside *...* pattern.
+                        const pattern = `**/*${q}*`;
+                        const matches = await fg([pattern], {
+                            onlyFiles: true,
+                            cwd: workspaceRoot,
+                            dot: false,
+                            absolute: false,
+                            ignore: ['**/node_modules/**', '**/.git/**']
+                        });
+
+                        const limited = (matches || []).slice(0, 200).map((p: string) => require('path').join(workspaceRoot, p));
+                        webviewView.webview.postMessage({ type: 'searchFilesResult', results: limited });
+                    } catch (error) {
+                        console.error('Error searching files:', error);
+                        webviewView.webview.postMessage({ type: 'searchFilesResult', results: [], error: error instanceof Error ? error.message : String(error) });
+                    }
+                    break;
+
+                case 'requestFileContent':
+                    try {
+                        const filePath: string = data.path;
+                        if (!filePath) {
+                            webviewView.webview.postMessage({ type: 'fileContent', path: filePath, content: '', error: 'No path provided' });
+                            break;
+                        }
+
+                        const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+                        const pathLib = require('path');
+                        const resolved = pathLib.isAbsolute(filePath) ? filePath : (workspaceRoot ? pathLib.join(workspaceRoot, filePath) : filePath);
+
+                        const fileUri = vscode.Uri.file(resolved);
+                        const bytes = await vscode.workspace.fs.readFile(fileUri);
+                        const content = Buffer.from(bytes).toString('utf8');
+
+                        webviewView.webview.postMessage({ type: 'fileContent', path: resolved, content });
+                    } catch (error) {
+                        console.error('Error reading file content:', error);
+                        webviewView.webview.postMessage({ type: 'fileContent', path: data.path, content: '', error: error instanceof Error ? error.message : String(error) });
+                    }
+                    break;
                 case MessageType.RequestBranchCommits:
                     // Send branch commits to webview
                     const { branchName } = data;
@@ -759,94 +816,41 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                 id: 'gpt-4o',
                 name: 'GPT-4o',
                 vendor: 'openai',
-                family: 'gpt-4o', 
+                family: 'gpt-4o',
                 version: 'latest',
                 maxInputTokens: 128000,
                 displayName: '🔄 GPT-4o (OpenAI) - Fallback'
             },
-            // {
-            //     id: 'gpt-3.5-turbo',
-            //     name: 'GPT-3.5 Turbo',
-            //     vendor: 'openai',
-            //     family: 'gpt-3.5-turbo',
-            //     version: 'latest',
-            //     maxInputTokens: 16000,
-            //     displayName: '🔄 GPT-3.5 Turbo (OpenAI) - Fallback'
-            // },
-            // {
-            //     id: 'claude-3-haiku',
-            //     name: 'Claude 3 Haiku',
-            //     vendor: 'anthropic',
-            //     family: 'claude-3',
-            //     version: 'haiku',
-            //     maxInputTokens: 200000,
-            //     displayName: '🔄 Claude 3 Haiku (Anthropic) - Fallback'
-            // },
-            // {
-            //     id: 'gemini-pro',
-            //     name: 'Gemini Pro',
-            //     vendor: 'google',
-            //     family: 'gemini',
-            //     version: 'pro',
-            //     maxInputTokens: 1000000,
-            //     displayName: '🔄 Gemini Pro (Google) - Fallback'
-            // }
+            {
+                id: 'gpt-3.5-turbo',
+                name: 'GPT-3.5 Turbo',
+                vendor: 'openai',
+                family: 'gpt-3.5-turbo',
+                version: 'latest',
+                maxInputTokens: 16000,
+                displayName: '🔄 GPT-3.5 Turbo (OpenAI) - Fallback'
+            }
         ];
     }
 
     /**
-     * Format model display name for UI
-     */
-    private formatModelDisplayName(model: any, isAvailable?: boolean): string {
-        const parts = [];
-        
-        if (model.name) {
-            parts.push(model.name);
-        } else if (model.family) {
-            // parts.push(model.family);
-        } else {
-            // parts.push(model.id);
-        }
-        
-        if (model.vendor) {
-            // parts.push(`(${model.vendor})`);
-        }
-        
-        if (model.maxInputTokens) {
-            // parts.push(`- ${Math.floor(model.maxInputTokens / 1000)}K tokens`);
-        }
-        
-        // Add availability indicator
-        if (isAvailable === false) {
-            // return `⚠️ ${parts.join(' ')} - Limited Access`;
-            return `⚠️ ${parts.join(' ')} - Limited Access`;
-        } else if (isAvailable === true) {
-            return `${parts.join(' ')}`;
-        }
-        
-        return parts.join(' ');
-    }
-
-    /**
-     * Quick validation of model availability without full test
+     * Quickly validate a model appears usable. This is a lightweight check and may
+     * return true conservatively when the environment doesn't support deep checks.
      */
     private async validateModelQuickly(model: any): Promise<boolean> {
         try {
-            // For now, we assume models returned by selectChatModels are available
-            // This is a placeholder for more sophisticated validation
-            // Could be enhanced with actual test requests if needed
-            
-            // Check for known problematic patterns
-            if (!model.id || !model.family) {
-                return false;
-            }
-            
-            // All models from selectChatModels should be available in theory
-            return true;
+            // Basic heuristic: if model object exists, consider it available.
+            // Deeper checks (like sending a test request) can be added later.
+            return !!model;
         } catch (error) {
-            console.warn(`Quick validation failed for model ${model.id}:`, error);
+            console.warn(`Quick validation failed for model ${model?.id || '<unknown>'}:`, error);
             return false;
         }
+    }
+
+    private formatModelDisplayName(model: any, isAvailable: boolean): string {
+        const base = model?.name || model?.id || 'unknown-model';
+        return isAvailable ? base : `${base} (unavailable)`;
     }
 
     /**

@@ -661,3 +661,50 @@ async function findAlternativeModel(
         return null;
     }
 }
+
+/**
+ * Create a simple prompt for reviewing a single file (whole file review)
+ */
+export function createReviewFilePrompt(instructionContents: string, fileContent: string): string {
+    return `
+Review the following code:
+----------------------------------
+${fileContent}
+----------------------------------
+And require to following the instructions:
+----------------------------------
+${instructionContents}
+    `;
+}
+
+/**
+ * Send a single file review request to Copilot using the provided instructions.
+ * Returns the review text or null on failure.
+ */
+export async function SendReviewForFile(
+    instructionContents: string,
+    fileContent: string,
+    auditContext: AuditContext,
+    context: vscode.ExtensionContext,
+    selectedModelId?: string
+): Promise<string | null> {
+    const prompt = createReviewFilePrompt(instructionContents, fileContent);
+
+    return await vscode.window.withProgress(
+        {
+            location: vscode.ProgressLocation.Notification,
+            title: 'Reviewing file with Copilot...',
+            cancellable: true
+        },
+        async (progress, token) => {
+            try {
+                const response = await sendToCopilot(prompt, progress, token, selectedModelId, true);
+                return response;
+            } catch (error) {
+                console.error('Error sending file review to Copilot:', error);
+                vscode.window.showErrorMessage(`Failed to review file: ${error instanceof Error ? error.message : 'Unknown error'}`);
+                return null;
+            }
+        }
+    );
+}
