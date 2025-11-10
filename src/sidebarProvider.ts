@@ -1,12 +1,13 @@
 import * as vscode from 'vscode';
 import { getNonce } from './utils';
 import * as path from 'path';
+import * as fs from 'fs';
 import fg from 'fast-glob';
 import { GitService } from './services/gitService';
 import * as copilotChatService from './services/copilotChatService';
 import { IntelligentRoutingService } from './services/intelligentRoutingService';
 import { ReviewDataService } from './services/reviewDataService';
-import { ReviewService } from './services/reviewService';
+import { ReviewFileProcessParams, ReviewService } from './services/reviewService';
 import { DiffViewerService } from './services/diffViewerService';
 import { ReviewHistoryView } from './services/reviewHistoryView';
 import { ReviewResultService } from './services/reviewResultService';
@@ -328,6 +329,43 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                         const {selectedModel, files} = data.data;
 
                         console.log(selectedModel, files);
+
+                        const chunks: string[] = [];
+
+                        for (const file of files) {
+                            const fileUri = vscode.Uri.file(file.path); 
+                            const bytes = await vscode.workspace.fs.readFile(fileUri);
+                            const content = Buffer.from(bytes).toString('utf8');
+
+                            chunks.push(
+                                `file: ${path.basename(file.path)}\n` +
+                                '-------\n' +
+                                content +
+                                '\n-------'
+                            );
+                        }
+
+                        const combined = chunks.join('\n');
+                        console.log(combined);
+
+
+                        const reviewService = ReviewService.getInstance(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath);
+                        if (reviewService) {
+                            reviewService.setExtensionContext(this._extensionContext);
+                            await vscode.window.withProgress({
+                                location: vscode.ProgressLocation.Notification,
+                                title: 'Processing Review',
+                                cancellable: true
+                            }, async (progress, token) => {
+                                // Use ReviewService to process the review
+                                await reviewService.processReviewFile({
+                                    content : combined,
+                                    selectedModel
+                                } as ReviewFileProcessParams, this._extensionContext, (increment: number, message: string) => {
+                                    progress.report({ increment, message });
+                                });
+                            });
+                        }
 
                     }catch(ex){
 

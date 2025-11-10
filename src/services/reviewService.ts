@@ -1,19 +1,30 @@
-import * as vscode from 'vscode';
-import * as fs from 'fs';
-import * as path from 'path';
-import { ReviewDataService, ReviewData } from './reviewDataService';
-import { SendReviewDiffChangeRequest, AuditContext } from './copilotChatService';
-import { DiffViewerService } from './diffViewerService';
-import { SlackService } from './slackService';
-import { ReviewResultService } from './reviewResultService';
-import { ReviewHistoryView } from './reviewHistoryView';
-import { IntelligentRoutingService } from './intelligentRoutingService';
+import * as vscode from "vscode";
+import * as fs from "fs";
+import * as path from "path";
+import { ReviewDataService, ReviewData } from "./reviewDataService";
+import {
+    SendReviewDiffChangeRequest,
+    AuditContext,
+} from "./copilotChatService";
+import { DiffViewerService } from "./diffViewerService";
+import { SlackService } from "./slackService";
+import { ReviewResultService } from "./reviewResultService";
+import { ReviewHistoryView } from "./reviewHistoryView";
+import { IntelligentRoutingService } from "./intelligentRoutingService";
 
 // Interface for review processing parameters
 export interface ReviewProcessParams {
     currentBranch: string;
     baseBranch: string;
     selectedCommit?: string;
+}
+
+export interface ReviewFileProcessParams {
+    content: string,
+    selectedModel : string,
+    // currentBranch: string;
+    // baseBranch: string;
+    // selectedCommit?: string;
 }
 
 // Interface for instruction file content
@@ -55,35 +66,81 @@ export class ReviewService {
         progressCallback?: (increment: number, message: string) => void
     ): Promise<void> {
         try {
-            progressCallback?.(0, 'Initializing review process...');
+            progressCallback?.(0, "Initializing review process...");
 
             // Step 1: Read instructions (always attempt to load)
-            progressCallback?.(20, 'Reading review instructions...');
+            progressCallback?.(20, "Reading review instructions...");
             const instructions = await this.readReviewInstructions();
 
             // Step 2: Get review data from memory
-            progressCallback?.(40, 'Loading review data...');
+            progressCallback?.(40, "Loading review data...");
             const reviewDataService = ReviewDataService.getInstance();
             const reviewData = reviewDataService.getReviewData();
-            
+
             if (!reviewData) {
-                throw new Error('No review data found. Please create a review first.');
+                throw new Error(
+                    "No review data found. Please create a review first."
+                );
             }
 
             // Step 3: Process diff with AI/analysis
-            progressCallback?.(60, 'Analyzing code changes...');
+            progressCallback?.(60, "Analyzing code changes...");
             await this.analyzeCodeChanges(reviewData, instructions);
 
             // Step 4: Generate review comments/suggestions
-            progressCallback?.(80, 'Generating review feedback...');
-            const reviewResults = await this.generateReviewFeedback(reviewData, instructions, context);
+            progressCallback?.(80, "Generating review feedback...");
+            const reviewResults = await this.generateReviewFeedback(
+                reviewData,
+                instructions,
+                context
+            );
 
             // Step 5: Present results to user
-            progressCallback?.(100, 'Review processing complete!');
+            progressCallback?.(100, "Review processing complete!");
             await this.presentReviewResults(reviewResults, params);
-
         } catch (error) {
-            console.error('Error processing review:', error);
+            console.error("Error processing review:", error);
+            throw error;
+        }
+    }
+
+    public async processReviewFile(
+        params: ReviewFileProcessParams,
+        context: vscode.ExtensionContext,
+        progressCallback?: (increment: number, message: string) => void
+    ): Promise<void> {
+        try {
+            progressCallback?.(0, "Initializing review process...");
+
+            // Step 1: Read instructions (always attempt to load)
+            progressCallback?.(20, "Reading review instructions...");
+            const instructions = await this.readReviewInstructions();
+
+            // Step 2: Get review data from memory
+            progressCallback?.(40, "Loading review data...");
+            if (!params.content) {
+                throw new Error(
+                    "No review data found. Please create a review first."
+                );
+            }
+
+            // Step 3: Process diff with AI/analysis
+            progressCallback?.(60, "Analyzing code changes...");
+
+            // Step 4: Generate review comments/suggestions
+            progressCallback?.(80, "Generating review feedback...");
+            const reviewResults = await this.generateFileReviewFeedback(
+                instructions,
+                params.content,
+                params.selectedModel,
+                context
+            );
+
+            // Step 5: Present results to user
+            progressCallback?.(100, "Review processing complete!");
+            // await this.presentReviewResults(reviewResults, params);
+        } catch (error) {
+            console.error("Error processing review:", error);
             throw error;
         }
     }
@@ -94,62 +151,84 @@ export class ReviewService {
     private async readReviewInstructions(): Promise<InstructionFile[]> {
         try {
             // Get instruction file paths from settings
-            const config = vscode.workspace.getConfiguration('premergeReview');
-            const instructionPaths: string[] = config.get('instructionFiles', [
-                '.github/instructions.md',
-                '.github/review-instructions.md',
-                'docs/review-guidelines.md'
+            const config = vscode.workspace.getConfiguration("premergeReview");
+            const instructionPaths: string[] = config.get("instructionFiles", [
+                ".github/instructions.md",
+                ".github/review-instructions.md",
+                "docs/review-guidelines.md",
             ]);
 
             const instructions: InstructionFile[] = [];
 
             for (const relativePath of instructionPaths) {
                 const fullPath = path.join(this.workspaceRoot, relativePath);
-                
+
                 try {
                     if (fs.existsSync(fullPath)) {
-                        const content = fs.readFileSync(fullPath, 'utf8');
+                        const content = fs.readFileSync(fullPath, "utf8");
                         instructions.push({
                             path: relativePath,
                             content: content,
-                            exists: true
+                            exists: true,
                         });
                         console.log(`Loaded instruction file: ${relativePath}`);
                     } else {
                         instructions.push({
                             path: relativePath,
-                            content: '',
-                            exists: false
+                            content: "",
+                            exists: false,
                         });
-                        console.log(`Instruction file not found: ${relativePath}`);
+                        console.log(
+                            `Instruction file not found: ${relativePath}`
+                        );
                     }
                 } catch (fileError) {
-                    console.error(`Error reading instruction file ${relativePath}:`, fileError);
+                    console.error(
+                        `Error reading instruction file ${relativePath}:`,
+                        fileError
+                    );
                     instructions.push({
                         path: relativePath,
-                        content: '',
-                        exists: false
+                        content: "",
+                        exists: false,
                     });
                 }
             }
 
             // Show summary of loaded instructions
-            const loadedCount = instructions.filter(i => i.exists).length;
+            const loadedCount = instructions.filter((i) => i.exists).length;
             if (loadedCount > 0) {
                 vscode.window.showInformationMessage(
                     `Loaded ${loadedCount} instruction file(s) for review guidance`
                 );
             } else {
                 vscode.window.showWarningMessage(
-                    'No instruction files found. Review will proceed without specific guidelines.'
+                    "No instruction files found. Review will proceed without specific guidelines."
                 );
+
+                if (this.extensionContext) {
+                    const bundledPath = vscode.Uri.joinPath(
+                        this.extensionContext.extensionUri,
+                        "resources",
+                        "default-instructions.md"
+                    ).fsPath;
+
+                    const content = fs.readFileSync(bundledPath, "utf8");
+
+                    instructions.push({
+                        exists: true,
+                        path: "",
+                        content: content,
+                    });
+                }
             }
 
             return instructions;
-
         } catch (error) {
-            console.error('Error loading instructions:', error);
-            vscode.window.showErrorMessage('Failed to load review instructions');
+            console.error("Error loading instructions:", error);
+            vscode.window.showErrorMessage(
+                "Failed to load review instructions"
+            );
             return [];
         }
     }
@@ -157,89 +236,42 @@ export class ReviewService {
     /**
      * Analyze code changes (placeholder for AI integration)
      */
-    private async analyzeCodeChanges(reviewData: ReviewData, instructions: InstructionFile[]): Promise<void> {
+    private async analyzeCodeChanges(
+        reviewData: ReviewData,
+        instructions: InstructionFile[]
+    ): Promise<void> {
         // TODO: Implement AI analysis of code changes
-        console.log('Analyzing code changes...');
+        console.log("Analyzing code changes...");
         console.log(`Files changed: ${reviewData.diffSummary.files.length}`);
-        console.log(`Instructions loaded: ${instructions.filter(i => i.exists).length}`);
-        
+        console.log(
+            `Instructions loaded: ${
+                instructions.filter((i) => i.exists).length
+            }`
+        );
+
         // Simulate analysis delay
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise((resolve) => setTimeout(resolve, 1000));
     }
 
     /**
      * Generate review feedback with intelligent instruction routing
      */
-    private async generateReviewFeedback(reviewData: ReviewData, instructions: InstructionFile[], context: vscode.ExtensionContext): Promise<any> {
-        const intelligentRouting = IntelligentRoutingService.getInstance(this.workspaceRoot);
-        
+    private async generateReviewFeedback(
+        reviewData: ReviewData,
+        instructions: InstructionFile[],
+        context: vscode.ExtensionContext
+    ): Promise<any> {
         let combineInstructionContent: string;
         let instructionsUsedInfo: string;
-        
-        // Check if intelligent routing is enabled
-        if (intelligentRouting.isIntelligentRoutingEnabled()) {
-            console.log('🎯 Using intelligent instruction routing...');
-            
-            try {
-                // Step 1: Create instruction index
-                const instructionIndex = await intelligentRouting.createInstructionIndex();
-                
-                if (instructionIndex.length === 0) {
-                    console.log('⚠️ No instruction files found in routing folder, falling back to traditional method');
-                    combineInstructionContent = instructions.filter(i => i.exists).map(i => i.content).join('\n\n');
-                    instructionsUsedInfo = `Traditional instructions (${instructions.filter(i => i.exists).length} files)`;
-                } else {
-                    // Step 2: Get routing decision from AI
-                    const changedFiles = reviewData.diffSummary.files;
-                    const routingDecision = await intelligentRouting.getInstructionRouting(
-                        reviewData.diff.substring(0, 2000), // Summary for routing
-                        changedFiles,
-                        instructionIndex
-                    );
-                    
-                    // Step 3: Select instructions based on routing
-                    const selectedInstructions = intelligentRouting.selectInstructionsByRouting(
-                        instructionIndex,
-                        routingDecision
-                    );
-                    
-                    // Step 4: Combine selected instruction content
-                    if (selectedInstructions.length > 0) {
-                        combineInstructionContent = intelligentRouting.combineInstructionContent(selectedInstructions);
-                        instructionsUsedInfo = `Intelligent routing (${selectedInstructions.length}/${instructionIndex.length} selected): ${selectedInstructions.map(i => i.filename).join(', ')}`;
-                        
-                        // Show routing info to user
-                        vscode.window.showInformationMessage(
-                            `🎯 AI selected ${selectedInstructions.length} relevant instructions based on your code changes`,
-                            'Show Details'
-                        ).then(selection => {
-                            if (selection === 'Show Details') {
-                                vscode.window.showInformationMessage(
-                                    `Routing Decision:\n${routingDecision.reasoning}\n\nConfidence: ${(routingDecision.confidence * 100).toFixed(1)}%`
-                                );
-                            }
-                        });
-                    } else {
-                        console.log('⚠️ No instructions selected by routing, falling back to traditional method');
-                        combineInstructionContent = instructions.filter(i => i.exists).map(i => i.content).join('\n\n');
-                        instructionsUsedInfo = `Fallback to traditional instructions (${instructions.filter(i => i.exists).length} files)`;
-                    }
-                }
-                
-            } catch (error) {
-                console.error('Error during intelligent routing:', error);
-                vscode.window.showWarningMessage(
-                    `Intelligent routing failed: ${error instanceof Error ? error.message : 'Unknown error'}. Using traditional instructions.`
-                );
-                combineInstructionContent = instructions.filter(i => i.exists).map(i => i.content).join('\n\n');
-                instructionsUsedInfo = `Traditional instructions (routing failed)`;
-            }
-            
-        } else {
-            // Traditional method: use all instructions
-            combineInstructionContent = instructions.filter(i => i.exists).map(i => i.content).join('\n\n');
-            instructionsUsedInfo = `Traditional instructions (${instructions.filter(i => i.exists).length} files)`;
-        }
+
+        // Traditional method: use all instructions
+        combineInstructionContent = instructions
+            .filter((i) => i.exists)
+            .map((i) => i.content)
+            .join("\n\n");
+        instructionsUsedInfo = `Traditional instructions (${
+            instructions.filter((i) => i.exists).length
+        } files)`;
 
         // Create audit context
         const auditContext: AuditContext = {
@@ -247,76 +279,143 @@ export class ReviewService {
             reviewTime: new Date().toISOString(),
             sourceBranch: reviewData.currentBranch,
             targetBranch: reviewData.baseBranch,
-            commitRange: reviewData.selectedCommit ? {
-                fromCommit: reviewData.selectedCommit,
-                toCommit: reviewData.currentBranch
-            } : undefined,
+            commitRange: reviewData.selectedCommit
+                ? {
+                      fromCommit: reviewData.selectedCommit,
+                      toCommit: reviewData.currentBranch,
+                  }
+                : undefined,
             workspaceName: vscode.workspace.name,
-            gitRepoUrl: await this.getGitRepoUrl()
+            gitRepoUrl: await this.getGitRepoUrl(),
         };
 
         // Send review request and get result
         const reviewResult = await SendReviewDiffChangeRequest(
-            combineInstructionContent, 
-            reviewData.diff, 
-            auditContext, 
+            combineInstructionContent,
+            reviewData.diff,
             context,
+            auditContext,
             reviewData.selectedModel
         );
-        
+
         // Prepare result data
         const resultData = {
             summary: `Review completed for ${reviewData.diffSummary.files.length} files`,
             instructionsUsed: instructionsUsedInfo,
-            content: reviewResult || 'No review content generated',
-            isMultiPart: false
+            content: reviewResult || "No review content generated",
+            isMultiPart: false,
         };
-        
+
         // Check if this was handled as a multi-part review (which already stores its own result)
         const reviewResultService = ReviewResultService.getInstance();
         const currentResult = reviewResultService.getCurrentReviewResult();
-        
+
         // Only store result if it wasn't already stored by multi-part flow
         if (!currentResult || !currentResult.reviewResults.isMultiPart) {
             // Store the review result in memory
             reviewResultService.storeReviewResult(reviewData, resultData);
-            
+
             // Show review history after data has been stored (avoid timing issues)
             setTimeout(() => {
                 ReviewHistoryView.createOrShow(context);
             }, 100); // Small delay to ensure data is fully saved
         }
-        
+
         return {
             summary: resultData.summary,
             instructionsUsed: resultData.instructionsUsed,
             suggestions: [],
             issues: [],
-            result: reviewResult
+            result: reviewResult,
+        };
+    }
+
+    private async generateFileReviewFeedback(
+        instructions: InstructionFile[],
+        content: string,
+        selectedModel : string,
+        context: vscode.ExtensionContext
+    ): Promise<any> {
+        let combineInstructionContent: string;
+        let instructionsUsedInfo: string;
+
+        // Traditional method: use all instructions
+        combineInstructionContent = instructions
+            .filter((i) => i.exists)
+            .map((i) => i.content)
+            .join("\n\n");
+        instructionsUsedInfo = `Traditional instructions (${
+            instructions.filter((i) => i.exists).length
+        } files)`;
+
+        const reviewResult = await SendReviewDiffChangeRequest(
+            combineInstructionContent,
+            content,
+            context,
+            undefined,
+            selectedModel
+        );
+
+        // Prepare result data
+        const resultData = {
+            summary: `Review completed for selected files`,
+            instructionsUsed: instructionsUsedInfo,
+            content: reviewResult || "No review content generated",
+            isMultiPart: false,
+        };
+
+        // Check if this was handled as a multi-part review (which already stores its own result)
+        const reviewResultService = ReviewResultService.getInstance();
+        const currentResult = reviewResultService.getCurrentReviewResult();
+
+        // Only store result if it wasn't already stored by multi-part flow
+        if (!currentResult || !currentResult.reviewResults.isMultiPart) {
+            // Store the review result in memory
+            reviewResultService.storeReviewResult({
+                
+                // gonna update here
+
+            } as ReviewData, resultData);
+
+            // Show review history after data has been stored (avoid timing issues)
+            setTimeout(() => {
+                ReviewHistoryView.createOrShow(context);
+            }, 100); // Small delay to ensure data is fully saved
+        }
+
+        return {
+            summary: resultData.summary,
+            instructionsUsed: resultData.instructionsUsed,
+            suggestions: [],
+            issues: [],
+            result: reviewResult,
         };
     }
 
     /**
      * Present review results to user
      */
-    private async presentReviewResults(reviewResults: any, params: ReviewProcessParams): Promise<void> {
-        const compareInfo = params.selectedCommit ? 
-            `from commit ${params.selectedCommit.substring(0, 8)}` : 
-            `from branch ${params.baseBranch}`;
+    private async presentReviewResults(
+        reviewResults: any,
+        params: ReviewProcessParams
+    ): Promise<void> {
+        const compareInfo = params.selectedCommit
+            ? `from commit ${params.selectedCommit.substring(0, 8)}`
+            : `from branch ${params.baseBranch}`;
 
         // Simple completion notification without action buttons
         // since Review History is already shown automatically
         const disposable = vscode.window.showInformationMessage(
             `Review processing completed!\n\n` +
-            `Comparing ${params.currentBranch} ${compareInfo}\n` +
-            `${reviewResults.summary}\n` +
-            `Instructions used: ${reviewResults.instructionsUsed}`
+                `Comparing ${params.currentBranch} ${compareInfo}\n` +
+                `${reviewResults.summary}\n` +
+                `Instructions used: ${reviewResults.instructionsUsed}`
         );
-        
+
         // Auto-close after 10 seconds
         setTimeout(() => {
             if (disposable) {
-                disposable.then(selection => {
+                disposable.then((selection) => {
                     // Auto-close after timeout
                 });
             }
@@ -330,28 +429,42 @@ export class ReviewService {
         try {
             const reviewDataService = ReviewDataService.getInstance();
             const reviewData = reviewDataService.getReviewData();
-            
+
             if (!reviewData) {
-                vscode.window.showErrorMessage('No review data available for diff viewer');
+                vscode.window.showErrorMessage(
+                    "No review data available for diff viewer"
+                );
                 return;
             }
 
             if (!this.extensionContext) {
-                vscode.window.showErrorMessage('Extension context not available');
+                vscode.window.showErrorMessage(
+                    "Extension context not available"
+                );
                 return;
             }
 
             const diffViewerService = DiffViewerService.getInstance();
-            await diffViewerService.showDiffViewer(reviewData, this.extensionContext, {
-                showLineNumbers: true,
-                highlightChanges: true,
-                splitView: false
-            });
+            await diffViewerService.showDiffViewer(
+                reviewData,
+                this.extensionContext,
+                {
+                    showLineNumbers: true,
+                    highlightChanges: true,
+                    splitView: false,
+                }
+            );
 
-            vscode.window.showInformationMessage('📊 Diff viewer opened successfully!');
+            vscode.window.showInformationMessage(
+                "📊 Diff viewer opened successfully!"
+            );
         } catch (error) {
-            console.error('Error showing diff viewer:', error);
-            vscode.window.showErrorMessage(`Failed to show diff viewer: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            console.error("Error showing diff viewer:", error);
+            vscode.window.showErrorMessage(
+                `Failed to show diff viewer: ${
+                    error instanceof Error ? error.message : "Unknown error"
+                }`
+            );
         }
     }
 
@@ -361,29 +474,38 @@ export class ReviewService {
     private async postReviewToSlack(reviewResults: any): Promise<void> {
         try {
             const slackService = SlackService.getInstance();
-            
+
             if (!slackService.isSlackConfigured()) {
                 const result = await vscode.window.showWarningMessage(
-                    'Slack is not configured. Please set up webhook URL in settings.',
-                    'Open Settings',
-                    'Cancel'
+                    "Slack is not configured. Please set up webhook URL in settings.",
+                    "Open Settings",
+                    "Cancel"
                 );
-                
-                if (result === 'Open Settings') {
-                    vscode.commands.executeCommand('workbench.action.openSettings', 'premergeReview.slack');
+
+                if (result === "Open Settings") {
+                    vscode.commands.executeCommand(
+                        "workbench.action.openSettings",
+                        "premergeReview.slack"
+                    );
                 }
                 return;
             }
 
             const reviewContent = this.formatReviewForSlack(reviewResults);
             const success = await slackService.postReviewToSlack(reviewContent);
-            
+
             if (success) {
-                vscode.window.showInformationMessage('✅ Review posted to Slack successfully!');
+                vscode.window.showInformationMessage(
+                    "✅ Review posted to Slack successfully!"
+                );
             }
         } catch (error) {
-            console.error('Error posting to Slack:', error);
-            vscode.window.showErrorMessage(`Failed to post to Slack: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            console.error("Error posting to Slack:", error);
+            vscode.window.showErrorMessage(
+                `Failed to post to Slack: ${
+                    error instanceof Error ? error.message : "Unknown error"
+                }`
+            );
         }
     }
 
@@ -393,14 +515,14 @@ export class ReviewService {
     private formatReviewForSlack(reviewResults: any): string {
         const reviewDataService = ReviewDataService.getInstance();
         const reviewData = reviewDataService.getReviewData();
-        
+
         if (!reviewData) {
-            return 'Review completed but no data available for formatting.';
+            return "Review completed but no data available for formatting.";
         }
 
-        const compareInfo = reviewData.selectedCommit ? 
-            `from commit \`${reviewData.selectedCommit.substring(0, 8)}\`` : 
-            `compared to \`${reviewData.baseBranch}\``;
+        const compareInfo = reviewData.selectedCommit
+            ? `from commit \`${reviewData.selectedCommit.substring(0, 8)}\``
+            : `compared to \`${reviewData.baseBranch}\``;
 
         return `
 ## 🔍 Code Review Summary
@@ -408,7 +530,9 @@ export class ReviewService {
 **Branch:** \`${reviewData.currentBranch}\` ${compareInfo}
 **Summary:** ${reviewResults.summary}
 **Files Changed:** ${reviewData.diffSummary.files.length}
-**Changes:** +${reviewData.diffSummary.insertions} -${reviewData.diffSummary.deletions}
+**Changes:** +${reviewData.diffSummary.insertions} -${
+            reviewData.diffSummary.deletions
+        }
 **Instructions Used:** ${reviewResults.instructionsUsed}
 **Issues Found:** ${reviewResults.issues?.length || 0}
 **Suggestions:** ${reviewResults.suggestions?.length || 0}
@@ -421,11 +545,11 @@ export class ReviewService {
      * Get configured instruction file paths
      */
     public getConfiguredInstructionPaths(): string[] {
-        const config = vscode.workspace.getConfiguration('premergeReview');
-        return config.get('instructionFiles', [
-            '.github/instructions.md',
-            '.github/review-instructions.md', 
-            'docs/review-guidelines.md'
+        const config = vscode.workspace.getConfiguration("premergeReview");
+        return config.get("instructionFiles", [
+            ".github/instructions.md",
+            ".github/review-instructions.md",
+            "docs/review-guidelines.md",
         ]);
     }
 
@@ -433,9 +557,15 @@ export class ReviewService {
      * Update instruction file paths in settings
      */
     public async updateInstructionPaths(paths: string[]): Promise<void> {
-        const config = vscode.workspace.getConfiguration('premergeReview');
-        await config.update('instructionFiles', paths, vscode.ConfigurationTarget.Workspace);
-        vscode.window.showInformationMessage('Instruction file paths updated successfully');
+        const config = vscode.workspace.getConfiguration("premergeReview");
+        await config.update(
+            "instructionFiles",
+            paths,
+            vscode.ConfigurationTarget.Workspace
+        );
+        vscode.window.showInformationMessage(
+            "Instruction file paths updated successfully"
+        );
     }
 
     /**
@@ -443,22 +573,24 @@ export class ReviewService {
      */
     private async getGitRepoUrl(): Promise<string | undefined> {
         try {
-            const simpleGit = require('simple-git');
+            const simpleGit = require("simple-git");
             const git = simpleGit(this.workspaceRoot);
-            
+
             // Get list of remotes
             const remotes = await git.getRemotes(true);
-            
+
             // Find origin remote or use the first available
-            const originRemote = remotes.find((remote: any) => remote.name === 'origin') || remotes[0];
-            
+            const originRemote =
+                remotes.find((remote: any) => remote.name === "origin") ||
+                remotes[0];
+
             if (originRemote && originRemote.refs && originRemote.refs.fetch) {
                 return originRemote.refs.fetch;
             }
-            
+
             return undefined;
         } catch (error) {
-            console.error('Error getting git repository URL:', error);
+            console.error("Error getting git repository URL:", error);
             return undefined;
         }
     }
@@ -468,23 +600,27 @@ export class ReviewService {
      */
     private async getReviewerName(): Promise<string> {
         try {
-            const simpleGit = require('simple-git');
+            const simpleGit = require("simple-git");
             const git = simpleGit(this.workspaceRoot);
-            
+
             // Try to get git username
             const gitConfig = await git.listConfig();
-            const userName = gitConfig.all['user.name'];
-            const userEmail = gitConfig.all['user.email'];
-            
+            const userName = gitConfig.all["user.name"];
+            const userEmail = gitConfig.all["user.email"];
+
             if (userName) {
                 return userEmail ? `${userName} <${userEmail}>` : userName;
             }
-            
+
             // Fallback to VS Code username or machine ID
-            return vscode.env.remoteName || vscode.env.machineId || 'Unknown Reviewer';
+            return (
+                vscode.env.remoteName ||
+                vscode.env.machineId ||
+                "Unknown Reviewer"
+            );
         } catch (error) {
-            console.error('Error getting reviewer name:', error);
-            return vscode.env.machineId || 'Unknown Reviewer';
+            console.error("Error getting reviewer name:", error);
+            return vscode.env.machineId || "Unknown Reviewer";
         }
     }
 }

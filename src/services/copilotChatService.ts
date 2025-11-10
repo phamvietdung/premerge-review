@@ -19,13 +19,13 @@ export interface AuditContext {
 
 export async function SendReviewDiffChangeRequest(
     instructionContents: string,
-    diffChangeContent: string,
-    auditContext: AuditContext,
+    content: string, // content to review
     context: vscode.ExtensionContext,
+    auditContext?: AuditContext,
     selectedModelId?: string
 ): Promise<string | null> {
     // Get maxTokensPerPart from selected model's capacity
-    let maxTokensPerPart = 8000; // Default fallback
+    let maxTokensPerPart = 16000; // Default fallback
     
     try {
         if (selectedModelId) {
@@ -45,26 +45,25 @@ export async function SendReviewDiffChangeRequest(
         console.warn('Error getting model token limits, using default:', error);
     }
     
-    const estimatedTokens = Math.ceil(diffChangeContent.length / 4); // Rough estimate: 4 chars per token
+    const estimatedTokens = Math.ceil(content.length / 4); // Rough estimate: 4 chars per token
     
     if (estimatedTokens <= maxTokensPerPart) {
         // Single request for small diffs
-        return await sendSingleReviewRequest(instructionContents, diffChangeContent, auditContext, context, selectedModelId);
+        return await sendSingleReviewRequest(instructionContents, content, context, auditContext, selectedModelId);
     } else {
         // Split into multiple parts for large diffs
-        return await sendMultiPartReviewRequest(instructionContents, diffChangeContent, auditContext, context, maxTokensPerPart, selectedModelId);
+        return await sendMultiPartReviewRequest(instructionContents, content, context, maxTokensPerPart, auditContext, selectedModelId);
     }
 }
 
 async function sendSingleReviewRequest(
     instructionContents: string,
-    diffChangeContent: string,
-    auditContext: AuditContext,
+    content: string,
     context: vscode.ExtensionContext,
+    auditContext?: AuditContext,
     selectedModelId?: string
 ): Promise<string | null> {
-    const prompt = createReviewPrompt(instructionContents, diffChangeContent, auditContext, false);
-
+    const prompt = createReviewPrompt(instructionContents, content, false, auditContext);
     return await vscode.window.withProgress(
         {
             location: vscode.ProgressLocation.Notification,
@@ -94,10 +93,10 @@ async function sendSingleReviewRequest(
 
 async function sendMultiPartReviewRequest(
     instructionContents: string,
-    diffChangeContent: string,
-    auditContext: AuditContext,
+    content: string,
     context: vscode.ExtensionContext,
     maxTokensPerPart: number,
+    auditContext?: AuditContext,
     selectedModelId?: string
 ): Promise<string | null> {
     return await vscode.window.withProgress(
@@ -129,7 +128,7 @@ async function sendMultiPartReviewRequest(
                 const reviewId = reviewResultService.storeReviewResult(reviewData, initialResultData);
 
                 // Split diff into parts
-                const diffParts = splitDiffIntoParts(diffChangeContent, maxTokensPerPart);
+                const diffParts = splitDiffIntoParts(content, maxTokensPerPart);
                 const reviewParts: string[] = [];
 
                 progress.report({
@@ -148,8 +147,8 @@ async function sendMultiPartReviewRequest(
                     const prompt = createReviewPrompt(
                         instructionContents, 
                         diffParts[i], 
-                        auditContext,
                         isPartialReview, 
+                        auditContext,
                         partNumber, 
                         diffParts.length
                     );
@@ -210,8 +209,8 @@ async function sendMultiPartReviewRequest(
 function createReviewPrompt(
     instructionContents: string, 
     diffContent: string, 
-    auditContext: AuditContext,
     isPartialReview: boolean = false,
+    auditContext?: AuditContext,
     partNumber?: number,
     totalParts?: number
 ): string {
@@ -219,8 +218,12 @@ function createReviewPrompt(
         ? `\n\nNOTE: This is part ${partNumber} of ${totalParts} of a larger diff. Focus on reviewing this specific part, but keep in mind it's part of a larger change set.`
         : '';
 
-    // Create audit context section
-    const auditInfo = `
+    let prompt = '';
+
+    if(auditContext != null){
+        prompt += `
+Based on the following audit context:
+---------------------------------
 Review Context:
 - Reviewer: ${auditContext.reviewer}
 - Review Time: ${auditContext.reviewTime}
@@ -230,54 +233,36 @@ Review Context:
 - To Commit: ${auditContext.commitRange.toCommit}` : ''}${auditContext.workspaceName ? `
 - Workspace: ${auditContext.workspaceName}` : ''}${auditContext.gitRepoUrl ? `
 - Repository: ${auditContext.gitRepoUrl}` : ''}
-`;
-
-// return `
-// Audit Context:
-// ----------------------------------    
-// ${auditInfo}
-
-
-// Review Instructions (MANDATORY):
-// ----------------------------------
-// ${instructionContents}
-
-
-
-// Code Changes to Review:
-// ----------------------------------
-// ${diffContent}
-
-
-// ${partInfo ? `Additional Context:\n----------------------------------\n${partInfo}\n\n` : ''}
-
-// Review Requirement:
-// You must perform a detailed code review **based strictly on the instructions provided above**.
-
-// Your review must include the following:
-// 1. **Overall assessment of the changes**  
-// 2. **Potential issues or improvements**  
-// 3. **Code quality feedback**  
-// 4. **Best practices recommendations**
-// ${isPartialReview ? '5. Dependencies or connections with other parts' : ''}
-// `;
-
-    return `
-Based on the following audit context:
-----------------------------------    
-${auditInfo}
 ---------------------------------- 
-And require to following the instructions:
+        `;
+    }
+
+    prompt += `
+Require to following the instructions:
 ----------------------------------
 ${instructionContents}
 ----------------------------------
+    `;
+
+    if(auditContext != null){
+        prompt += `
 And require to review the following code changes:
 ----------------------------------
 ${diffContent}
 ----------------------------------
+        `;
+    }else{
+         prompt += `
+And require to review the following code:
+----------------------------------
+${diffContent}
+----------------------------------
+`;
+    }
 
+
+    prompt += `
 ${partInfo}
-
 And require to provide:
 1. Overall assessment of the changes
 2. Potential issues or improvements
@@ -285,6 +270,12 @@ And require to provide:
 4. Best practices recommendations
 ${isPartialReview ? '5. Note any dependencies or connections this part might have with other parts' : ''}
     `;
+
+    console.log("=====");
+    console.log(prompt);
+    console.log("=====");
+
+    return prompt;
 }
 
 function splitDiffIntoParts(diffContent: string, maxTokensPerPart: number): string[] {

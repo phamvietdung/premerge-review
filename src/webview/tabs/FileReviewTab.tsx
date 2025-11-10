@@ -140,7 +140,7 @@ export default function FileReviewTab({ vscode, selectedFiles, setSelectedFiles,
   const handleSubmitReview = () => {
     // Build review payload. For each selected file include path and chunks (if available)
     const payload = selectedFiles.map(f => ({ path: f.path, language: f.language || null, chunks: f.chunks || null }));
-    vscode.postMessage({ type: 'createFileReview', data: { files: payload } });
+    vscode.postMessage({ type: 'createFileReview', data: { files: payload, selectedModel  } });
   };
 
   return (
