@@ -1,11 +1,21 @@
 import { h } from 'preact';
 
-import type { ReactNode } from 'react';
-import { useState, useEffect, useCallback, useRef } from 'preact/hooks';
+import type { Dispatch, ReactNode } from 'react';
+import { useState, useEffect, useCallback, useRef, StateUpdater } from 'preact/hooks';
 import { styles } from '../styles';
+import { AppState, defaultState } from '../App';
+import { SearchableSelect } from '../components/SearchableSelect';
+import { ChatModel } from '../../models';
 
 interface FileReviewTabProps {
   vscode: any;
+  selectedFiles: SelectedFile[],
+  setSelectedFiles: Dispatch<StateUpdater<SelectedFile[]>>,
+  chatModels: ChatModel[],
+  loadingModels: boolean,
+  selectedModel: string,
+  setSelectedModel: Dispatch<StateUpdater<string>>,
+  theme: string
 }
 
 type FileChunk = {
@@ -15,7 +25,7 @@ type FileChunk = {
   endLine: number;
 };
 
-type SelectedFile = {
+export type SelectedFile = {
   path: string;
   language?: string;
   chunks?: FileChunk[];
@@ -27,10 +37,12 @@ type SelectedFile = {
 // - postMessage({ type: 'requestFileContent', path }) -> window posts back { type: 'fileContent', path, content }
 // - postMessage({ type: 'createReview', data }) to create a review (we follow CommitReviewTab pattern)
 
-export default function FileReviewTab({ vscode }: FileReviewTabProps) {
+export default function FileReviewTab({ vscode, selectedFiles, setSelectedFiles,
+  chatModels, loadingModels, selectedModel, setSelectedModel, theme
+}: FileReviewTabProps) {
   const [query, setQuery] = useState('');
   const [searchResults, setSearchResults] = useState<string[]>([]);
-  const [selectedFiles, setSelectedFiles] = useState<SelectedFile[]>([]);
+
   const [loadingSearch, setLoadingSearch] = useState(false);
   const [loadingFiles, setLoadingFiles] = useState<Record<string, boolean>>({});
   const searchedByEnterRef = useRef(false);
@@ -56,9 +68,9 @@ export default function FileReviewTab({ vscode }: FileReviewTabProps) {
       } else if (message.type === 'fileContent') {
         const { path, content } = message;
         // simple language detection by extension
-  const lang = path.endsWith('.cs') ? 'csharp' : undefined;
-  // Temporarily treat whole file as one chunk; splitting logic will be added later
-  const chunks = [{ name: path, text: content, startLine: 1, endLine: content.split('\n').length }];
+        const lang = path.endsWith('.cs') ? 'csharp' : undefined;
+        // Temporarily treat whole file as one chunk; splitting logic will be added later
+        const chunks = [{ name: path, text: content, startLine: 1, endLine: content.split('\n').length }];
 
         setSelectedFiles(prev => prev.map(f => f.path === path ? { ...f, language: lang, chunks } : f));
         setLoadingFiles(prev => ({ ...prev, [path]: false }));
@@ -91,6 +103,7 @@ export default function FileReviewTab({ vscode }: FileReviewTabProps) {
 
     // request file content for chunking and analysis
     setLoadingFiles(prev => ({ ...prev, [path]: true }));
+
     vscode.postMessage({ type: 'requestFileContent', path });
   }, [vscode]);
 
@@ -127,7 +140,7 @@ export default function FileReviewTab({ vscode }: FileReviewTabProps) {
   const handleSubmitReview = () => {
     // Build review payload. For each selected file include path and chunks (if available)
     const payload = selectedFiles.map(f => ({ path: f.path, language: f.language || null, chunks: f.chunks || null }));
-    vscode.postMessage({ type: 'createReview', data: { files: payload } });
+    vscode.postMessage({ type: 'createFileReview', data: { files: payload } });
   };
 
   return (
@@ -144,19 +157,19 @@ export default function FileReviewTab({ vscode }: FileReviewTabProps) {
       {loadingSearch && <div style={{ marginTop: '0.5rem' as any }}>🔍 Searching workspace...</div>}
 
       {searchResults.length > 0 && (
-        <div style={{ marginTop: '0.5rem' as any }}>
+        <div style={{ padding: '0.5rem 10px 10px' as any, background: theme == 'light' ? '#0451a517' : '#f5f5dc12' }}>
           <div style={{ fontSize: '0.85rem', marginBottom: '0.25rem' as any }}>
             Matches:
           </div>
           <ul style={{ listStyle: 'none', padding: 0, margin: 0, maxHeight: '60vh', minHeight: '400px', overflowY: 'auto' } as any}>
             {searchResults.map((p) => (
-                <li key={p} style={{ marginBottom: '0.25rem' as any }}>
-                  <button style={{ ...styles.tabButtonDeactive, width: '100%', textAlign: 'left', padding: '0.5rem' } as any} onClick={() => handleSelectResult(p)}>
-                    <div style={{ fontSize: '0.95rem', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } as any}>{getBaseName(p)}</div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--vscode-descriptionForeground)', marginTop: '0.15rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } as any}>{p}</div>
-                  </button>
-                </li>
-              ))}
+              <li key={p} style={{ marginBottom: '0.25rem' as any }}>
+                <button style={{ ...styles.tabButtonDeactive, width: '100%', textAlign: 'left', padding: '0.5rem' } as any} onClick={() => handleSelectResult(p)}>
+                  <div style={{ fontSize: '0.95rem', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } as any}>{getBaseName(p)}</div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--vscode-descriptionForeground)', marginTop: '0.15rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } as any}>{p}</div>
+                </button>
+              </li>
+            ))}
           </ul>
         </div>
       )}
@@ -164,7 +177,9 @@ export default function FileReviewTab({ vscode }: FileReviewTabProps) {
       <div style={{ marginTop: '1rem' as any }}>
         <div style={{ fontWeight: 600 } as any}>Files to review</div>
         {selectedFiles.length === 0 && <div style={{ ...styles.warning as any, marginTop: '0.5rem' }}>No files selected</div>}
-        <ul style={{ listStyle: 'none', padding: 0, marginTop: '0.5rem' as any }}>
+        <ul style={{
+          listStyle: 'none', padding: 0, marginTop: '0.5rem' as any
+        }}>
           {selectedFiles.map(f => (
             <li key={f.path} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' } as any}>
               <div style={{ flex: '1 1 auto', minWidth: 0 } as any}>
@@ -182,7 +197,7 @@ export default function FileReviewTab({ vscode }: FileReviewTabProps) {
         </ul>
       </div>
 
-      <div style={{ marginTop: '1rem' as any }}>
+      {/* <div style={{ marginTop: '1rem' as any }}>
         <button
           style={{ ...styles.button } as any}
           onClick={handleSubmitReview}
@@ -190,6 +205,49 @@ export default function FileReviewTab({ vscode }: FileReviewTabProps) {
         >
           Submit Review
         </button>
+      </div> */}
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '1rem' } as any}>
+        <div style={{ flex: '1 1 auto', minWidth: 0 } as any}>
+          {/* <label style={styles.label as any}>
+                              AI Model for Review {loadingModels ? '(Loading...)' : `(${chatModels.length} models available)`}
+                          </label> */}
+
+
+          {!loadingModels && chatModels.length > 0 && (
+            <SearchableSelect
+              options={chatModels.map((model: ChatModel) => model.displayName)}
+              value={chatModels.find((model: ChatModel) => model.id === selectedModel)?.displayName || ''}
+              onChange={(displayName: any) => {
+                const model = chatModels.find((m: ChatModel) => m.displayName === displayName);
+                if (model) setSelectedModel(model.id);
+              }}
+              placeholder="Select AI model for code review..."
+            />
+          )}
+          {!loadingModels && chatModels.length === 0 && (
+            <div style={{ maxWidth: '200px', ...styles.warning as any }}>
+              {/* ⚠️ No AI models available. Using default GPT-4o. */}
+              Loading model ...
+            </div>
+          )}
+        </div>
+
+        <div style={{ flex: '0 0 auto' } as any}>
+          <button
+            style={{
+              ...styles.button,
+              marginTop: 0,
+              width: 'auto',
+              padding: '0.6rem 1rem'
+            } as any}
+            onClick={handleSubmitReview}
+          // disabled={!currentBranch || (!baseBranch && !selectedCommit) || !selectedModel}
+          >
+            Create Review
+            {/* {selectedCommit ? `(from commit ${selectedCommit.substring(0, 8)})` : `(from ${baseBranch})`} with {chatModels.find((model: any) => model.id === selectedModel)?.name || 'AI'} */}
+          </button>
+        </div>
       </div>
     </div>
   );

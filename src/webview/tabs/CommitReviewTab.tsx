@@ -1,19 +1,27 @@
 import { styles } from "../styles";
 import { SearchableSelect } from "../components/SearchableSelect";
-import { useState, useEffect, useCallback, useRef } from 'preact/hooks';
+import { useState, useEffect, useCallback, useRef, Dispatch, StateUpdater } from 'preact/hooks';
 import { ChatModel } from "../../models";
 import { MessageType } from "../../models/messageTypes";
 
-export function CommitReviewTab(props: { vscode: any }) {
+interface CommitReviewProps {
+    vscode: any,
+    chatModels: ChatModel[],
+    setChatModels: Dispatch<StateUpdater<ChatModel[]>>,
+    loadingModels: boolean,
+    selectedModel: string,
+    setSelectedModel: Dispatch<StateUpdater<string>>,
+    theme : string,
+}
 
-    const { vscode } = props;
+export function CommitReviewTab({ vscode, chatModels, setChatModels, loadingModels, selectedModel, setSelectedModel, theme }: CommitReviewProps) {
 
     const [currentBranch, setCurrentBranch] = useState('');
     const [baseBranch, setBaseBranch] = useState('');
     const [selectedCommit, setSelectedCommit] = useState('');
-    const [selectedModel, setSelectedModel] = useState('');
+    //const [selectedModel, setSelectedModel] = useState('');
     const [commits, setCommits] = useState([]);
-    const [chatModels, setChatModels] = useState<ChatModel[]>([]);
+    // const [chatModels, setChatModels] = useState<ChatModel[]>([]);
     const [gitInfo, setGitInfo] = useState({
         currentBranch: '',
         allBranches: [],
@@ -22,7 +30,7 @@ export function CommitReviewTab(props: { vscode: any }) {
     });
     const [isLoading, setIsLoading] = useState(true);
     const [loadingCommits, setLoadingCommits] = useState(false);
-    const [loadingModels, setLoadingModels] = useState(false);
+    // const [loadingModels, setLoadingModels] = useState(false);
     const [modelsError, setModelsError] = useState<string | null>(null);
     const [showManualRefresh, setShowManualRefresh] = useState(false);
     const [intelligentRoutingEnabled, setIntelligentRoutingEnabled] = useState(false);
@@ -39,7 +47,7 @@ export function CommitReviewTab(props: { vscode: any }) {
     useEffect(() => {
         // Request git info and chat models from extension
         vscode.postMessage({ type: MessageType.RequestGitInfo });
-        vscode.postMessage({ type: MessageType.RequestChatModels });
+
         vscode.postMessage({ type: MessageType.RequestSettings });
 
         // Listen for git info response
@@ -58,23 +66,7 @@ export function CommitReviewTab(props: { vscode: any }) {
                 setBaseBranch(defaultBase);
                 setIsLoading(false);
             } else if (message.type === 'chatModels') {
-                setChatModels(message.data);
-                // Handle error if present
-                if (message.error) {
-                    setModelsError(message.error);
-                    setShowManualRefresh(true);
-                } else {
-                    setModelsError(null);
-                    setShowManualRefresh(false);
-                    // Set default model (prefer GPT-4o if available)
-                    const defaultModel = message.data.find((model: ChatModel) =>
-                        model.family === 'gpt-4o' || model.id === 'gpt-4o'
-                    ) || message.data[0];
-                    if (defaultModel) {
-                        setSelectedModel(defaultModel.id);
-                    }
-                }
-                setLoadingModels(false);
+
             } else if (message.type === 'showManualRefresh') {
                 setShowManualRefresh(true);
             } else if (message.type === 'settings') {
@@ -169,7 +161,7 @@ export function CommitReviewTab(props: { vscode: any }) {
     };
 
     const handleRefreshModels = () => {
-        setLoadingModels(true);
+        // setLoadingModels(true);
         setModelsError(null);
         setShowManualRefresh(false);
         vscode.postMessage({ type: 'refreshChatModels' });
@@ -342,7 +334,7 @@ export function CommitReviewTab(props: { vscode: any }) {
                         onClick={handleCreateReview}
                         disabled={!currentBranch || (!baseBranch && !selectedCommit) || !selectedModel}
                     >
-                        Create Review 
+                        Create Review
                         {/* {selectedCommit ? `(from commit ${selectedCommit.substring(0, 8)})` : `(from ${baseBranch})`} with {chatModels.find((model: any) => model.id === selectedModel)?.name || 'AI'} */}
                     </button>
                 </div>

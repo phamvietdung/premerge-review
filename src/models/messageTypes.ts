@@ -6,6 +6,7 @@ export enum MessageType {
     SubmitFileReview = 'submitFileReview',
     SubmitFilesReview = 'submitFilesReview',
     CreateReview = 'createReview',
+    CreateFileReview = 'createFileReview',
     RequestGitInfo = 'requestGitInfo',
     RequestChatModels = 'requestChatModels',
     RefreshChatModels = 'refreshChatModels',

@@ -128,6 +128,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                             cwd: workspaceRoot,
                             dot: false,
                             absolute: false,
+                            caseSensitiveMatch : false,
                             ignore: ['**/node_modules/**', '**/.git/**']
                         });
 
@@ -320,6 +321,16 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                     } catch (error) {
                         console.error('Error submitting files for review:', error);
                         webviewView.webview.postMessage({ type: 'fileReviewError', error: error instanceof Error ? error.message : String(error) });
+                    }
+                    break;
+                case MessageType.CreateFileReview:
+                    try{
+                        const {selectedModel, files} = data.data;
+
+                        console.log(selectedModel, files);
+
+                    }catch(ex){
+
                     }
                     break;
                 case MessageType.CreateReview:
