@@ -1,8 +1,7 @@
 import * as vscode from "vscode";
-import { ReviewResultView } from './reviewResultView';
-import { ReviewHistoryView } from './reviewHistoryView';
-import { ReviewResultService } from './reviewResultService';
-import { ReviewDataService } from './reviewDataService';
+import { ReviewHistoryView } from '../commit-review/reviewHistoryView';
+import { ReviewResultService } from '../commit-review/reviewResultService';
+import { GitReviewDataService } from '../commit-review/gitReviewDataService';
 
 export interface AuditContext {
     reviewer: string;
@@ -108,7 +107,7 @@ async function sendMultiPartReviewRequest(
         async (progress, token) => {
             try {
                 // Get current review data for storing parts
-                const reviewDataService = ReviewDataService.getInstance();
+                const reviewDataService = GitReviewDataService.getInstance();
                 const reviewData = reviewDataService.getReviewData();
                 
                 if (!reviewData) {

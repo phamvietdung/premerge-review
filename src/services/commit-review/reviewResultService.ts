@@ -1,3 +1,20 @@
+/**
+ * ReviewResultService - Quản lý lưu trữ, truy xuất, format kết quả review.
+ *
+ * Các function chính:
+ * - getInstance: singleton instance cho service
+ * - storeReviewResult: lưu 1 kết quả review mới
+ * - storeReviewPart: lưu 1 phần kết quả (multi-part review)
+ * - storeFinalMergedResult: lưu kết quả tổng hợp cuối cùng cho multi-part
+ * - getCurrentReviewResult: lấy kết quả review hiện tại (theo id)
+ * - getReviewResult: lấy kết quả review theo id
+ * - getAllReviewResults: lấy toàn bộ kết quả review (mới nhất lên đầu)
+ * - clearAllResults: xóa toàn bộ kết quả review
+ * - clearReviewResult: xóa 1 kết quả review theo id
+ * - hasStoredResults: kiểm tra có kết quả review nào không
+ * - getLatestReviewResult: lấy kết quả review mới nhất
+ * - formatReviewResultForDisplay: format kết quả review ra markdown để hiển thị
+ */
 import * as vscode from 'vscode';
 
 export interface ReviewResultData {
@@ -32,11 +49,18 @@ export interface ReviewPartResult {
 }
 
 export class ReviewResultService {
+    private static STORAGE_KEY = 'commitReviewResults';
+    private extensionContext: vscode.ExtensionContext | null = null;
     private static instance: ReviewResultService;
     private reviewResults: Map<string, ReviewResultData> = new Map();
     private currentReviewId: string | null = null;
 
     private constructor() {}
+
+    public initialize(context: vscode.ExtensionContext) {
+        this.extensionContext = context;
+        this.loadFromStorage();
+    }
 
     public static getInstance(): ReviewResultService {
         if (!ReviewResultService.instance) {
@@ -56,10 +80,9 @@ export class ReviewResultService {
             reviewData,
             reviewResults
         };
-
         this.reviewResults.set(reviewId, resultData);
         this.currentReviewId = reviewId;
-
+        this.saveToStorage();
         console.log(`Review result stored with ID: ${reviewId}`);
         return reviewId;
     }
@@ -90,10 +113,10 @@ export class ReviewResultService {
             timestamp: new Date()
         };
 
-        existingResult.reviewResults.parts.push(partResult);
-        existingResult.reviewResults.isMultiPart = true;
-
-        console.log(`Review part ${partNumber}/${totalParts} stored for review ${reviewId}`);
+    existingResult.reviewResults.parts.push(partResult);
+    existingResult.reviewResults.isMultiPart = true;
+    this.saveToStorage();
+    console.log(`Review part ${partNumber}/${totalParts} stored for review ${reviewId}`);
     }
 
     /**
@@ -106,8 +129,9 @@ export class ReviewResultService {
             return;
         }
 
-        existingResult.reviewResults.finalMergedResult = mergedContent;
-        console.log(`Final merged result stored for review ${reviewId}`);
+    existingResult.reviewResults.finalMergedResult = mergedContent;
+    this.saveToStorage();
+    console.log(`Final merged result stored for review ${reviewId}`);
     }
 
     /**
@@ -142,6 +166,7 @@ export class ReviewResultService {
     public clearAllResults(): void {
         this.reviewResults.clear();
         this.currentReviewId = null;
+        this.saveToStorage();
         console.log('All review results cleared');
     }
 
@@ -153,7 +178,46 @@ export class ReviewResultService {
         if (this.currentReviewId === reviewId) {
             this.currentReviewId = null;
         }
+        if (deleted) {
+            this.saveToStorage();
+        }
         return deleted;
+    }
+
+    private saveToStorage() {
+        if (!this.extensionContext) return;
+        // Convert Map to array and Date to ISO string
+        const arr = Array.from(this.reviewResults.values()).map(r => ({
+            ...r,
+            timestamp: r.timestamp instanceof Date ? r.timestamp.toISOString() : r.timestamp,
+            reviewResults: {
+                ...r.reviewResults,
+                parts: r.reviewResults.parts ? r.reviewResults.parts.map(p => ({
+                    ...p,
+                    timestamp: p.timestamp instanceof Date ? p.timestamp.toISOString() : p.timestamp
+                })) : undefined
+            }
+        }));
+        this.extensionContext.globalState.update(ReviewResultService.STORAGE_KEY, arr);
+    }
+
+    private loadFromStorage() {
+        if (!this.extensionContext) return;
+        const arr = this.extensionContext.globalState.get<any[]>(ReviewResultService.STORAGE_KEY, []);
+        this.reviewResults.clear();
+        arr.forEach(r => {
+            this.reviewResults.set(r.id, {
+                ...r,
+                timestamp: r.timestamp ? new Date(r.timestamp) : new Date(),
+                reviewResults: {
+                    ...r.reviewResults,
+                    parts: r.reviewResults.parts ? r.reviewResults.parts.map((p: any) => ({
+                        ...p,
+                        timestamp: p.timestamp ? new Date(p.timestamp) : new Date()
+                    })) : undefined
+                }
+            });
+        });
     }
 
     /**

@@ -3,15 +3,14 @@ import { getNonce } from './utils';
 import * as path from 'path';
 import * as fs from 'fs';
 import fg from 'fast-glob';
-import { GitService } from './services/gitService';
-import * as copilotChatService from './services/copilotChatService';
-import { IntelligentRoutingService } from './services/intelligentRoutingService';
-import { ReviewDataService } from './services/reviewDataService';
+import { GitService } from './services/git/gitService';
+import { GitReviewDataService } from './services/commit-review/gitReviewDataService';
 import { ReviewFileProcessParams, ReviewService } from './services/reviewService';
-import { DiffViewerService } from './services/diffViewerService';
-import { ReviewHistoryView } from './services/reviewHistoryView';
-import { ReviewResultService } from './services/reviewResultService';
+import { DiffViewerService } from './services/commit-review/diffViewerService';
+import { ReviewHistoryView } from './services/commit-review/reviewHistoryView';
+import { ReviewResultService } from './services/commit-review/reviewResultService';
 import { MessageType } from './models/messageTypes';
+import { FileReviewResultService } from './services/file-review/reviewResultService';
 
 export class SidebarProvider implements vscode.WebviewViewProvider {
     public static readonly viewType = 'premergeReviewView';
@@ -28,7 +27,11 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
         private readonly _extensionUri: vscode.Uri,
         private readonly _gitService: GitService,
         private readonly _extensionContext: vscode.ExtensionContext
-    ) { }
+    ) {
+    // Initialize FileReviewResultService and ReviewResultService with extension context for global storage
+    FileReviewResultService.getInstance().initialize(_extensionContext);
+    ReviewResultService.getInstance().initialize(_extensionContext);
+    }
 
     /**
      * Show information message with automatic timeout
@@ -261,63 +264,35 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                         }
 
                         const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-                        const fileContents: { path: string; relativePath: string; content: string }[] = [];
-
+                        const fileReviewDataList: any[] = [];
                         for (const fp of filePaths) {
                             try {
                                 const fileUri = vscode.Uri.file(fp);
                                 const bytes = await vscode.workspace.fs.readFile(fileUri);
                                 const content = Buffer.from(bytes).toString('utf8');
                                 const relative = workspaceRoot ? require('path').relative(workspaceRoot, fp) : fp;
-                                fileContents.push({ path: fp, relativePath: relative, content });
+                                fileReviewDataList.push({
+                                    fileName: relative,
+                                    content,
+                                    createdAt: new Date()
+                                });
                             } catch (readErr) {
                                 console.warn('Failed to read file for review:', fp, readErr);
                             }
                         }
 
-                        if (fileContents.length === 0) {
+                        if (fileReviewDataList.length === 0) {
                             webviewView.webview.postMessage({ type: 'fileReviewError', error: 'Unable to read any selected files' });
                             break;
                         }
 
-                        // Build a simple diff-like payload by concatenating full file contents for now
-                        const diffPayload = fileContents.map(f => `--- ${f.relativePath}\n${f.content}`).join('\n\n');
-
-                        const diffSummary = {
-                            files: fileContents.map(f => f.relativePath),
-                            insertions: 0,
-                            deletions: 0
-                        };
-
-                        // Prepare review data and store it in memory (so ReviewService can consume it)
-                        const currentBranch = (this._gitService && await this._gitService.getCurrentBranch()) || '';
-
-                        const reviewDataService = ReviewDataService.getInstance();
-                        reviewDataService.setReviewData({
-                            currentBranch: currentBranch,
-                            baseBranch: '',
-                            selectedCommit: undefined,
-                            selectedModel: undefined,
-                            diff: diffPayload,
-                            diffSummary: diffSummary,
-                            createdAt: new Date()
+                        const fileReviewResultService = FileReviewResultService.getInstance();
+                        fileReviewDataList.forEach(data => {
+                            fileReviewResultService.storeReviewResult(data.fileName, data.content);
                         });
 
-                        // Kick off processing flow similar to commit review
-                        const reviewService = ReviewService.getInstance(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath);
-                        if (reviewService) {
-                            reviewService.setExtensionContext(this._extensionContext);
-                            // Process review in background; user will be notified by ReviewService
-                            this.processReviewWithService(reviewService, {
-                                currentBranch: currentBranch,
-                                baseBranch: ''
-                            }).catch(err => {
-                                console.error('Error processing files review:', err);
-                            });
-                        }
-
                         // Notify webview of success (send first file path as shorthand)
-                        webviewView.webview.postMessage({ type: 'fileReviewSubmitted', filePath: fileContents[0].path });
+                        webviewView.webview.postMessage({ type: 'fileReviewSubmitted', filePath: fileReviewDataList[0].fileName });
 
                     } catch (error) {
                         console.error('Error submitting files for review:', error);
@@ -364,6 +339,8 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                                 } as ReviewFileProcessParams, this._extensionContext, (increment: number, message: string) => {
                                     progress.report({ increment, message });
                                 });
+                                // Notify webview that review was created successfully
+                                webviewView.webview.postMessage({ type: 'reviewCreated' });
                             });
                         }
 
@@ -403,7 +380,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                                 progress.report({ increment: 60, message: 'Processing diff data...' });
                                 
                                 // Store review data in memory
-                                const reviewDataService = ReviewDataService.getInstance();
+                                const reviewDataService = GitReviewDataService.getInstance();
                                 reviewDataService.setReviewData({
                                     currentBranch,
                                     baseBranch,
@@ -590,7 +567,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                     break;
                 case MessageType.ShowDiffViewer:
                     try {
-                        const reviewDataService = ReviewDataService.getInstance();
+                        const reviewDataService = GitReviewDataService.getInstance();
                         const reviewData = reviewDataService.getReviewData();
                         
                         if (!reviewData) {
@@ -608,7 +585,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                     break;
                 case MessageType.ProcessReview:
                     try {
-                        const reviewDataService = ReviewDataService.getInstance();
+                        const reviewDataService = GitReviewDataService.getInstance();
                         const reviewData = reviewDataService.getReviewData();
                         
                         if (!reviewData) {
@@ -634,7 +611,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                     break;
                 case MessageType.PostToSlack:
                     try {
-                        const reviewDataService = ReviewDataService.getInstance();
+                        const reviewDataService = GitReviewDataService.getInstance();
                         const reviewData = reviewDataService.getReviewData();
                         
                         if (!reviewData) {
@@ -697,7 +674,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                     break;
                 case MessageType.ClearReviewData:
                     try {
-                        const reviewDataService = ReviewDataService.getInstance();
+                        const reviewDataService = GitReviewDataService.getInstance();
                         reviewDataService.clearReviewData();
                         
                         // Notify webview that review data has been cleared

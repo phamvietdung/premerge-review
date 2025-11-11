@@ -1,12 +1,12 @@
 import * as vscode from 'vscode';
 import { SidebarProvider } from './sidebarProvider';
-import { GitService } from './services/gitService';
-import { ReviewDataService } from './services/reviewDataService';
+import { GitService } from './services/git/gitService';
+import { GitReviewDataService } from './services/commit-review/gitReviewDataService';
 import { ReviewService } from './services/reviewService';
-import { SlackService } from './services/slackService';
-import { DiffViewerService } from './services/diffViewerService';
-import { ReviewHistoryView } from './services/reviewHistoryView';
-import { ReviewResultService } from './services/reviewResultService';
+import { SlackService } from './services/intergrations/slackService';
+import { DiffViewerService } from './services/commit-review/diffViewerService';
+import { ReviewHistoryView } from './services/commit-review/reviewHistoryView';
+import { ReviewResultService } from './services/commit-review/reviewResultService';
 
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
@@ -78,7 +78,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 	// Register command to show current review data
 	const showReviewDataCommand = vscode.commands.registerCommand('premerge-review.showReviewData', () => {
-		const reviewDataService = ReviewDataService.getInstance();
+		const reviewDataService = GitReviewDataService.getInstance();
 		
 		if (!reviewDataService.hasReviewData()) {
 			vscode.window.showInformationMessage('No review data available. Create a review first.');
@@ -316,7 +316,7 @@ export function activate(context: vscode.ExtensionContext) {
 	// Register diff viewer command
 	const showDiffViewerCommand = vscode.commands.registerCommand('premerge-review.showDiffViewer', async () => {
 		try {
-			const reviewDataService = ReviewDataService.getInstance();
+			const reviewDataService = GitReviewDataService.getInstance();
 			const reviewData = reviewDataService.getReviewData();
 			
 			if (!reviewData) {
@@ -339,9 +339,9 @@ export function activate(context: vscode.ExtensionContext) {
 	// Register export diff command
 	const exportDiffCommand = vscode.commands.registerCommand('premerge-review.exportDiff', async () => {
 		try {
-			const reviewDataService = ReviewDataService.getInstance();
+			const reviewDataService = GitReviewDataService.getInstance();
 			const reviewData = reviewDataService.getReviewData();
-			
+        
 			if (!reviewData) {
 				vscode.window.showErrorMessage('No review data available for export.');
 				return;
@@ -349,7 +349,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 			const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
 			const fileName = `${reviewData.currentBranch}-vs-${reviewData.baseBranch}-${timestamp}.diff`;
-			
+        
 			const options: vscode.SaveDialogOptions = {
 				defaultUri: vscode.Uri.file(fileName),
 				filters: {

@@ -1,6 +1,25 @@
+/**
+ * DiffViewerService - Hiển thị và xử lý giao diện so sánh diff code.
+ *
+ * Các function chính:
+ * - getInstance: singleton instance cho service
+ * - showDiffViewer: tạo hoặc hiển thị panel diff, render nội dung diff
+ * - processDiffData: parse raw diff string thành cấu trúc dữ liệu file/hunk/line
+ * - generateDiffViewerHtml: render HTML cho panel diff
+ * - generateFileListHTML: render danh sách file thay đổi
+ * - generateDiffContentHTML: render nội dung diff từng file
+ * - generateHunkLinesHTML: render từng dòng diff trong hunk
+ * - getDisplayFileName: lấy tên file hiển thị
+ * - getFileIcon: lấy icon phù hợp cho file
+ * - handleWebviewMessage: xử lý message từ webview (export, refresh)
+ * - exportDiffToFile: xuất diff ra file
+ * - escapeHtml: escape ký tự HTML đặc biệt
+ * - getDiffViewerCSS: trả về CSS cho panel diff
+ * - getDiffViewerJS: trả về JS cho panel diff
+ */
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { ReviewData } from './reviewDataService';
+import { ReviewData } from './gitReviewDataService';
 
 export interface DiffViewOptions {
     showLineNumbers?: boolean;

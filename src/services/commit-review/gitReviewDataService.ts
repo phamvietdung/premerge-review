@@ -1,3 +1,14 @@
+/**
+ * GitReviewDataService - Quản lý dữ liệu review git diff hiện tại (ReviewData) trong bộ nhớ.
+ *
+ * Các function chính:
+ * - getInstance: singleton instance cho service
+ * - setReviewData: lưu dữ liệu review hiện tại
+ * - getReviewData: lấy dữ liệu review hiện tại
+ * - clearReviewData: xóa dữ liệu review khỏi bộ nhớ
+ * - hasReviewData: kiểm tra có dữ liệu review không
+ * - getReviewSummary: trả về summary ngắn gọn về review hiện tại
+ */
 import * as vscode from 'vscode';
 
 export interface ReviewData {
@@ -14,17 +25,18 @@ export interface ReviewData {
     createdAt: Date;
 }
 
-export class ReviewDataService {
-    private static instance: ReviewDataService;
+
+export class GitReviewDataService {
+    private static instance: GitReviewDataService;
     private currentReviewData: ReviewData | null = null;
 
     private constructor() {}
 
-    public static getInstance(): ReviewDataService {
-        if (!ReviewDataService.instance) {
-            ReviewDataService.instance = new ReviewDataService();
+    public static getInstance(): GitReviewDataService {
+        if (!GitReviewDataService.instance) {
+            GitReviewDataService.instance = new GitReviewDataService();
         }
-        return ReviewDataService.instance;
+        return GitReviewDataService.instance;
     }
 
     public setReviewData(data: ReviewData): void {
@@ -43,8 +55,8 @@ export class ReviewDataService {
     }
 
     public clearReviewData(): void {
-        this.currentReviewData = null;
-        console.log('Review data cleared from memory');
+    this.currentReviewData = null;
+    console.log('Review data cleared from memory');
     }
 
     public hasReviewData(): boolean {

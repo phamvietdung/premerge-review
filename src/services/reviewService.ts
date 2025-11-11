@@ -1,16 +1,36 @@
+/**
+ * ReviewService - Điều phối toàn bộ quy trình review code.
+ *
+ * Các function chính:
+ * - getInstance: singleton instance cho service
+ * - setExtensionContext: gán context cho webview
+ * - processReview: xử lý review cho commit diff (luồng chính)
+ * - processReviewFile: xử lý review cho file content
+ * - readReviewInstructions: đọc hướng dẫn review từ file cấu hình
+ * - analyzeCodeChanges: (placeholder) phân tích thay đổi code
+ * - generateReviewFeedback: gọi AI sinh nhận xét cho commit diff
+ * - generateFileReviewFeedback: gọi AI sinh nhận xét cho file content
+ * - presentReviewResults: hiển thị thông báo kết quả review
+ * - showDiffViewer: mở giao diện so sánh diff
+ * - postReviewToSlack: gửi kết quả review lên Slack
+ * - formatReviewForSlack: format kết quả review gửi Slack
+ * - getConfiguredInstructionPaths: lấy danh sách file hướng dẫn
+ * - updateInstructionPaths: cập nhật danh sách file hướng dẫn
+ * - getGitRepoUrl: lấy URL repo git
+ * - getReviewerName: lấy tên reviewer từ git hoặc VSCode
+ */
 import * as vscode from "vscode";
 import * as fs from "fs";
 import * as path from "path";
-import { ReviewDataService, ReviewData } from "./reviewDataService";
+import { GitReviewDataService, ReviewData } from "./commit-review/gitReviewDataService";
 import {
     SendReviewDiffChangeRequest,
     AuditContext,
-} from "./copilotChatService";
-import { DiffViewerService } from "./diffViewerService";
-import { SlackService } from "./slackService";
-import { ReviewResultService } from "./reviewResultService";
-import { ReviewHistoryView } from "./reviewHistoryView";
-import { IntelligentRoutingService } from "./intelligentRoutingService";
+} from "./copilot/copilotChatService";
+import { DiffViewerService } from "./commit-review/diffViewerService";
+import { SlackService } from "./intergrations/slackService";
+import { ReviewResultService } from "./commit-review/reviewResultService";
+import { ReviewHistoryView } from "./commit-review/reviewHistoryView";
 
 // Interface for review processing parameters
 export interface ReviewProcessParams {
@@ -74,7 +94,7 @@ export class ReviewService {
 
             // Step 2: Get review data from memory
             progressCallback?.(40, "Loading review data...");
-            const reviewDataService = ReviewDataService.getInstance();
+            const reviewDataService = GitReviewDataService.getInstance();
             const reviewData = reviewDataService.getReviewData();
 
             if (!reviewData) {
@@ -372,10 +392,18 @@ export class ReviewService {
         if (!currentResult || !currentResult.reviewResults.isMultiPart) {
             // Store the review result in memory
             reviewResultService.storeReviewResult({
-                
-                // gonna update here
-
-            } as ReviewData, resultData);
+                currentBranch: 'N/A',
+                baseBranch: 'N/A',
+                selectedCommit: undefined,
+                selectedModel: selectedModel,
+                diff: '',
+                diffSummary: {
+                    files: ['file-content'],
+                    insertions: 0,
+                    deletions: 0
+                },
+                createdAt: new Date()
+            }, resultData);
 
             // Show review history after data has been stored (avoid timing issues)
             setTimeout(() => {
@@ -427,7 +455,7 @@ export class ReviewService {
      */
     private async showDiffViewer(): Promise<void> {
         try {
-            const reviewDataService = ReviewDataService.getInstance();
+            const reviewDataService = GitReviewDataService.getInstance();
             const reviewData = reviewDataService.getReviewData();
 
             if (!reviewData) {
@@ -513,7 +541,7 @@ export class ReviewService {
      * Format review results for Slack
      */
     private formatReviewForSlack(reviewResults: any): string {
-        const reviewDataService = ReviewDataService.getInstance();
+        const reviewDataService = GitReviewDataService.getInstance();
         const reviewData = reviewDataService.getReviewData();
 
         if (!reviewData) {

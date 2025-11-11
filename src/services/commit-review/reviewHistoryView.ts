@@ -1,7 +1,20 @@
+/**
+ * ReviewHistoryView - Quản lý và hiển thị lịch sử các kết quả review.
+ *
+ * Các function chính:
+ * - createOrShow: tạo hoặc hiển thị panel lịch sử review
+ * - refreshContent: cập nhật lại nội dung panel
+ * - showReviewResult: hiển thị chi tiết 1 kết quả review
+ * - viewDiff: hiển thị diff của 1 review (nếu có)
+ * - deleteReviewResult: xóa 1 kết quả review khỏi lịch sử
+ * - clearAllResults: xóa toàn bộ lịch sử review
+ * - getWebviewContent: render HTML cho panel lịch sử review
+ * - getReviewResultContent: render HTML chi tiết 1 review
+ * - markdownToHtml: convert markdown sang HTML để hiển thị
+ */
 import * as vscode from 'vscode';
 import { ReviewResultService, ReviewResultData } from './reviewResultService';
 import { DiffViewerService } from './diffViewerService';
-import { ReviewDataService } from './reviewDataService';
 
 export class ReviewHistoryView {
     private static currentPanel: vscode.WebviewPanel | undefined;
