@@ -2,7 +2,7 @@
     "name": "premerge-review",
     "displayName": "PreMerge Review",
     "description": "AI-assisted code review before merging with visual diff viewer, GitHub Copilot integration, and Slack notifications",
-    "version": "1.0.5",
+    "version": "1.0.6",
     "publisher": "phamvietdung",
     "icon": "media/icon.png",
     "repository": {
@@ -209,6 +209,7 @@
         "typescript": "^5.8.3"
     },
     "dependencies": {
+        "fast-glob": "^3.3.3",
         "preact": "^10.26.9",
         "simple-git": "^3.28.0"
     }
