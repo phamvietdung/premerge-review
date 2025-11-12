@@ -39,6 +39,7 @@ export interface ReviewResultData {
         parts?: ReviewPartResult[];
         finalMergedResult?: string;
     };
+    sharedGitsUrl?: string;
 }
 
 export interface ReviewPartResult {
@@ -49,7 +50,6 @@ export interface ReviewPartResult {
 }
 
 export class ReviewResultService {
-    private static STORAGE_KEY = 'commitReviewResults';
     private extensionContext: vscode.ExtensionContext | null = null;
     private static instance: ReviewResultService;
     private reviewResults: Map<string, ReviewResultData> = new Map();
@@ -151,6 +151,14 @@ export class ReviewResultService {
         return this.reviewResults.get(reviewId) || null;
     }
 
+    public setSharedGitsUrl(reviewId: string, url: string) {
+        const review = this.reviewResults.get(reviewId);
+        if (review) {
+            review.sharedGitsUrl = url;
+            this.saveToStorage();
+        }
+    }
+
     /**
      * Get all review results
      */
@@ -184,6 +192,15 @@ export class ReviewResultService {
         return deleted;
     }
 
+    private getStorageKey(): string {
+        const wsFolders = vscode.workspace.workspaceFolders;
+        if (wsFolders && wsFolders.length > 0) {
+            // Có thể dùng fsPath hoặc hash để tránh key quá dài
+            return `commitReviewResults_${encodeURIComponent(wsFolders[0].uri.fsPath)}`;
+        }
+        return 'commitReviewResults_global';
+    }
+
     private saveToStorage() {
         if (!this.extensionContext) return;
         // Convert Map to array and Date to ISO string
@@ -196,14 +213,15 @@ export class ReviewResultService {
                     ...p,
                     timestamp: p.timestamp instanceof Date ? p.timestamp.toISOString() : p.timestamp
                 })) : undefined
-            }
+            },
+            sharedGitsUrl: r.sharedGitsUrl || undefined
         }));
-        this.extensionContext.globalState.update(ReviewResultService.STORAGE_KEY, arr);
+        this.extensionContext.globalState.update(this.getStorageKey(), arr);
     }
 
     private loadFromStorage() {
         if (!this.extensionContext) return;
-        const arr = this.extensionContext.globalState.get<any[]>(ReviewResultService.STORAGE_KEY, []);
+        const arr = this.extensionContext.globalState.get<any[]>(this.getStorageKey(), []);
         this.reviewResults.clear();
         arr.forEach(r => {
             this.reviewResults.set(r.id, {
@@ -215,7 +233,8 @@ export class ReviewResultService {
                         ...p,
                         timestamp: p.timestamp ? new Date(p.timestamp) : new Date()
                     })) : undefined
-                }
+                },
+                sharedGitsUrl: r.sharedGitsUrl || undefined
             });
         });
     }

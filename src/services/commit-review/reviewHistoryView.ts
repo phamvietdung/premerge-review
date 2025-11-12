@@ -15,6 +15,7 @@
 import * as vscode from 'vscode';
 import { ReviewResultService, ReviewResultData } from './reviewResultService';
 import { DiffViewerService } from './diffViewerService';
+import { publishMarkdownToGist } from '../intergrations/gitsService';
 
 export class ReviewHistoryView {
     private static currentPanel: vscode.WebviewPanel | undefined;
@@ -75,11 +76,36 @@ export class ReviewHistoryView {
                     case 'refreshHistory':
                         ReviewHistoryView.refreshContent();
                         return;
+                    case 'shareGits':
+                        ReviewHistoryView.shareGits(message.reviewId);
+                        return;
                 }
             },
             undefined,
             context.subscriptions
         );
+    }
+
+    private static shareGits(reviewId: string){
+        const reviewResultService = ReviewResultService.getInstance();
+        const reviewResult = reviewResultService.getReviewResult(reviewId);
+
+        if (!reviewResult) return;
+
+        if (reviewResult.sharedGitsUrl) {
+            vscode.window.showInformationMessage(`This review has already been shared: ${reviewResult.sharedGitsUrl}`);
+            return;
+        }
+
+        // Share and persist the gist URL
+        (async () => {
+            const gistUrl = await publishMarkdownToGist(reviewResult.reviewResults.content, reviewResult.id);
+            if (gistUrl) {
+                reviewResultService.setSharedGitsUrl(reviewId, gistUrl);
+                vscode.window.showInformationMessage('Review shared successfully!');
+                ReviewHistoryView.refreshContent();
+            }
+        })();
     }
 
     private static refreshContent() {
@@ -257,6 +283,7 @@ export class ReviewHistoryView {
                 ? `<div class="commit-info">📌 From commit: ${result.reviewData.selectedCommit.substring(0, 8)}</div>`
                 : '';
 
+            const alreadyShared = !!result.sharedGitsUrl;
             return `
                 <div class="result-item">
                     <div class="result-header">
@@ -281,6 +308,10 @@ export class ReviewHistoryView {
                     <div class="result-actions">
                         <button onclick="showReviewResult('${result.id}')" class="btn btn-primary">View Details</button>
                         <button onclick="viewDiff('${result.id}')" class="btn btn-secondary">View Diff</button>
+                        <button onclick="shareGits('${result.id}')" class="btn btn-secondary" ${alreadyShared ? 'disabled' : ''}>
+                            ${alreadyShared ? 'Shared' : 'Share'}
+                        </button>
+                        ${alreadyShared ? `<a href="${result.sharedGitsUrl}" target="_blank" class="btn btn-secondary">View Gist</a>` : ''}
                         <button onclick="deleteReviewResult('${result.id}')" class="btn btn-danger">Delete</button>
                     </div>
                 </div>
@@ -450,6 +481,13 @@ export class ReviewHistoryView {
         function viewDiff(reviewId) {
             vscode.postMessage({
                 command: 'viewDiff',
+                reviewId: reviewId
+            });
+        }
+
+        function shareGits(reviewId) {
+            vscode.postMessage({
+                command: 'shareGits',
                 reviewId: reviewId
             });
         }

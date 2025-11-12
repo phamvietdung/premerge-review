@@ -129,25 +129,21 @@
                         "docs/review-guidelines.md"
                     ],
                     "description": "List of instruction file paths to read for review guidance. Paths are relative to workspace root. Extension will automatically load any existing files.",
-                    "scope": "resource"
+                    "scope": "workspace"
                 },
-                "premergeReview.slack.webhookUrl": {
+                "premergeReview.reviewLanguage": {
                     "type": "string",
-                    "default": "",
-                    "description": "Slack Incoming Webhook URL (e.g., https://hooks.slack.com/services/YOUR/WEBHOOK/URL). Leave empty to disable Slack integration.",
-                    "scope": "resource"
-                },
-                "premergeReview.intelligentRouting.enabled": {
-                    "type": "boolean",
-                    "default": false,
-                    "markdownDescription": "Enable intelligent instruction routing using AI to automatically select relevant instructions based on code changes. ⚠️ **Warning:** This feature will use additional AI requests to analyze and route instructions, which may increase usage costs.",
-                    "scope": "resource"
-                },
-                "premergeReview.intelligentRouting.instructionFolderPath": {
-                    "type": "string",
-                    "default": ".github/instructions",
-                    "description": "Folder path containing instruction files for intelligent routing. All .md files in this folder will be scanned and indexed for AI-based instruction selection.",
-                    "scope": "resource"
+                    "default": "English",
+                    "enum": [
+                        "Vietnamese",
+                        "English",
+                        "Chinese",
+                        "French",
+                        "Japanese",
+                        "German"
+                    ],
+                    "description": "The output language for review content.",
+                    "scope": "workspace"
                 }
             }
         },

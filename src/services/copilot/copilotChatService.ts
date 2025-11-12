@@ -262,6 +262,10 @@ ${diffContent}
 
     prompt += `
 ${partInfo}
+
+Language:
+1, Use vietnamese as ouput review
+
 And require to provide:
 1. Overall assessment of the changes
 2. Potential issues or improvements
@@ -270,26 +274,33 @@ And require to provide:
 ${isPartialReview ? '5. Note any dependencies or connections this part might have with other parts' : ''}
     `;
 
-    console.log("=====");
-    console.log(prompt);
-    console.log("=====");
+    // console.log("=====");
+    // console.log(prompt);
+    // console.log("=====");
 
     return prompt;
 }
 
 function splitDiffIntoParts(diffContent: string, maxTokensPerPart: number): string[] {
     const maxCharsPerPart = maxTokensPerPart * 4; // Rough estimate: 4 chars per token
+    let blocks: string[];
+
+    // Detect file chunk pattern (for file review)
+    if (/^file: .+\n-------\n/m.test(diffContent)) {
+        // Split by file chunk, keep the delimiter
+        blocks = diffContent.split(/(?=^file: .+\n-------\n)/m);
+    } else {
+        // Default: split by diff --git (for commit diff)
+        blocks = diffContent.split(/^diff --git/m);
+        // Add back the prefix for all except the first block
+        blocks = blocks.map((b, i) => i === 0 ? b : 'diff --git' + b);
+    }
+
+    // Merge blocks into parts not exceeding maxCharsPerPart
     const parts: string[] = [];
-    
-    // Try to split by file boundaries first
-    const fileBlocks = diffContent.split(/^diff --git/m);
-    
     let currentPart = '';
-    
-    for (let i = 0; i < fileBlocks.length; i++) {
-        const block = i === 0 ? fileBlocks[i] : 'diff --git' + fileBlocks[i];
-        
-        // If adding this block would exceed the limit
+    for (let i = 0; i < blocks.length; i++) {
+        const block = blocks[i];
         if (currentPart.length + block.length > maxCharsPerPart && currentPart.length > 0) {
             parts.push(currentPart.trim());
             currentPart = block;
@@ -297,13 +308,11 @@ function splitDiffIntoParts(diffContent: string, maxTokensPerPart: number): stri
             currentPart += (currentPart.length > 0 ? '\n' : '') + block;
         }
     }
-    
-    // Add the last part
     if (currentPart.trim().length > 0) {
         parts.push(currentPart.trim());
     }
-    
-    // If we still have parts that are too large, split them further by lines
+
+    // If any part is still too large, split further by lines
     const finalParts: string[] = [];
     for (const part of parts) {
         if (part.length <= maxCharsPerPart) {
@@ -313,7 +322,6 @@ function splitDiffIntoParts(diffContent: string, maxTokensPerPart: number): stri
             finalParts.push(...subParts);
         }
     }
-    
     return finalParts.filter(part => part.trim().length > 0);
 }
 
