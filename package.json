@@ -33,8 +33,7 @@
         "vscode": "^1.102.0"
     },
     "activationEvents": [
-        "onCommand:fileReview.add",
-        "onCommand:fileReview.showList"
+        "onCommand:fileReview.add"
     ],
     "categories": [
         "Other",
@@ -57,52 +56,6 @@
             {
                 "command": "fileReview.add",
                 "title": "PreMerge - Add to review"
-            },
-            {
-                "command": "fileReview.showList",
-                "title": "PreMerge - Show file review"
-            },
-            {
-                "command": "premerge-review.showReviewData",
-                "title": "Show Current Review Data"
-            },
-            {
-                "command": "premerge-review.testSlackConnection",
-                "title": "Test Slack Connection"
-            },
-            {
-                "command": "premerge-review.testLanguageModels",
-                "title": "Test Language Models API",
-                "category": "PreMerge Review"
-            },
-            {
-                "command": "premerge-review.validateAllModels",
-                "title": "Validate All AI Models",
-                "category": "PreMerge Review"
-            },
-            {
-                "command": "premerge-review.showDiffViewer",
-                "title": "Show Diff Viewer",
-                "category": "PreMerge Review",
-                "icon": "$(diff)"
-            },
-            {
-                "command": "premerge-review.exportDiff",
-                "title": "Export Diff",
-                "category": "PreMerge Review",
-                "icon": "$(export)"
-            },
-            {
-                "command": "premerge-review.showReviewHistory",
-                "title": "Show Review History",
-                "category": "PreMerge Review",
-                "icon": "$(history)"
-            },
-            {
-                "command": "premerge-review.clearReviewResults",
-                "title": "Clear All Review Results",
-                "category": "PreMerge Review",
-                "icon": "$(trash)"
             }
         ],
         "views": {

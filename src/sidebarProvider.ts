@@ -60,14 +60,8 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
 
         if (!filePath) return;
 
-        if (this._view && this._view.webview) {
-            try {
-                this._view.webview.postMessage({ type: MessageType.FileAdded, filePath });
-            } catch (err) {
-                console.error('Failed to post fileAdded message to webview:', err);
-                // fall back to queue
-                this.pendingAddedFiles.push(filePath);
-            }
+        if (this._view && this._view.visible) {
+            this._view.webview.postMessage({ type: MessageType.FileAdded, filePath });
         } else {
             this.pendingAddedFiles.push(filePath);
         }
@@ -103,6 +97,17 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
 
         webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
 
+
+        webviewView.onDidChangeVisibility(() => {
+        if (webviewView.visible) {
+            if (this.pendingAddedFiles.length > 0) {
+                for (const filePath of this.pendingAddedFiles) {
+                    webviewView.webview.postMessage({ type: MessageType.FileAdded, filePath });
+                }
+                this.pendingAddedFiles = [];
+                }
+            }
+        });
         
 
         webviewView.webview.onDidReceiveMessage(async data => {
@@ -143,7 +148,6 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                         webviewView.webview.postMessage({ type: 'searchFilesResult', results: [], error: error instanceof Error ? error.message : String(error) });
                     }
                     break;
-
                 case 'requestFileContent':
                     try {
                         const filePath: string = data.path;

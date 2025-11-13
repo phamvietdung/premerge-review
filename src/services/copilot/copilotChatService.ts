@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import { ReviewHistoryView } from '../commit-review/reviewHistoryView';
 import { ReviewResultService } from '../commit-review/reviewResultService';
 import { GitReviewDataService } from '../commit-review/gitReviewDataService';
+import { getExtensionSetting } from "../../helpers";
 
 export interface AuditContext {
     reviewer: string;
@@ -260,18 +261,22 @@ ${diffContent}
     }
 
 
+    var language = getExtensionSetting("reviewLanguage");
+
+    if(language != undefined){
+        prompt += `
+Language:
+1, Use ${language} as ouput review
+        `;
+    }
+
     prompt += `
 ${partInfo}
-
-Language:
-1, Use vietnamese as ouput review
 
 And require to provide:
 1. Overall assessment of the changes
 2. Potential issues or improvements
-3. Code quality feedback
-4. Best practices recommendations
-${isPartialReview ? '5. Note any dependencies or connections this part might have with other parts' : ''}
+${isPartialReview ? '3. Note any dependencies or connections this part might have with other parts' : ''}
     `;
 
     // console.log("=====");

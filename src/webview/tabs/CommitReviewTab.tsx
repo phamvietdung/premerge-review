@@ -53,6 +53,7 @@ export function CommitReviewTab({ vscode, chatModels, setChatModels, loadingMode
         // Listen for git info response
         const handleMessage = (event: any) => {
             const message = event.data;
+            console.log(event.data)
             if (message.type === 'gitInfo') {
                 setGitInfo(message.data);
                 setCurrentBranch(message.data.currentBranch);
@@ -167,17 +168,7 @@ export function CommitReviewTab({ vscode, chatModels, setChatModels, loadingMode
         vscode.postMessage({ type: 'refreshChatModels' });
     };
 
-    const handleShowReviewResult = () => {
-        vscode.postMessage({ type: 'showReviewResult' });
-    };
-
-    const handleShowSettings = () => {
-        // Open VS Code settings for this extension
-        vscode.postMessage({
-            type: 'openSettings',
-            settingId: 'premergeReview'
-        });
-    };
+   
 
     if (isLoading) {
         return (
@@ -340,32 +331,6 @@ export function CommitReviewTab({ vscode, chatModels, setChatModels, loadingMode
                 </div>
             </div>
 
-            {/* Review Actions Section */}
-            <div style={styles.reviewSection as any}>
-                <div style={styles.reviewActions as any}>
-                    <button
-                        style={{
-                            ...styles.actionButton,
-                            ...styles.infoButton
-                        } as any}
-                        onClick={handleShowReviewResult}
-                        title="Show review history and results"
-                    >
-                        📋 History
-                    </button>
-
-                    <button
-                        style={{
-                            ...styles.actionButton,
-                            ...styles.settingsButton
-                        } as any}
-                        onClick={handleShowSettings}
-                        title="Extension settings and configuration"
-                    >
-                        ⚙️ Settings
-                    </button>
-                </div>
-            </div>
         </>
     )
 }

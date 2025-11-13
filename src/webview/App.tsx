@@ -119,6 +119,18 @@ function App() {
     }, []);
 
 
+     const handleShowReviewResult = () => {
+        vscode.postMessage({ type: 'showReviewResult' });
+    };
+
+    const handleShowSettings = () => {
+        // Open VS Code settings for this extension
+        vscode.postMessage({
+            type: 'openSettings',
+            settingId: 'premergeReview'
+        });
+    };
+
     return (
         <div style={styles.container as any}>
             <div style={styles.header as any}>
@@ -163,6 +175,32 @@ function App() {
                     theme={theme}
                     vscode={vscode} />
             )}
+
+            <div style={styles.reviewSection as any}>
+                <div style={styles.reviewActions as any}>
+                    <button
+                        style={{
+                            ...styles.actionButton,
+                            ...styles.infoButton
+                        } as any}
+                        onClick={handleShowReviewResult}
+                        title="Show review history and results"
+                    >
+                        📋 Review History
+                    </button>
+
+                    <button
+                        style={{
+                            ...styles.actionButton,
+                            ...styles.settingsButton
+                        } as any}
+                        onClick={handleShowSettings}
+                        title="Extension settings and configuration"
+                    >
+                        ⚙️ Settings
+                    </button>
+                </div>
+            </div>
 
         </div>
     );

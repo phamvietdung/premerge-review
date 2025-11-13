@@ -7,8 +7,6 @@
 
 **Review Date**: {Current Date}  
 **Reviewer**: {Reviewer Name}  
-**Commit Range**: {From Commit} → {To Commit} (if applicable)  
-**Branch/PR**: {Branch or PR information}  
 **Files Reviewed**: {Number} files
 
 ## Summary
@@ -88,28 +86,6 @@ Minor issues and suggestions for improvement:
   - **Impact**: Code style/Minor optimization
   - **Recommendation**: Optional improvement
 
-## Architecture Review
-
-- ✅ **CQRS Pattern**: Correctly implemented
-- ✅ **Repository Pattern**: Following standards
-- ⚠️ **Dependency Injection**: Minor issues found
-- ✅ **Entity Framework**: Proper usage
-
-## Positive Highlights
-
-List any particularly well-written code or good practices observed.
-
-## Recommendations
-
-Overall recommendations for the development team based on this review.
-
-## Review Metrics
-
-- **Total Issues**: {count}
-- **High Priority**: {count}
-- **Medium Priority**: {count}
-- **Low Priority**: {count}
-- **Files with Issues**: {count}/{total}
 ```
 
 ### Priority Classification Guidelines

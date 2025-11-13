@@ -47,6 +47,8 @@ export default function FileReviewTab({ vscode, selectedFiles, setSelectedFiles,
   const [loadingFiles, setLoadingFiles] = useState<Record<string, boolean>>({});
   const searchedByEnterRef = useRef(false);
 
+  const [isCreatingReview, setIsCreatingReview] = useState<boolean>(false);
+
   useEffect(() => {
     const handleMessage = (event: any) => {
       const message = event.data;
@@ -77,6 +79,10 @@ export default function FileReviewTab({ vscode, selectedFiles, setSelectedFiles,
       } else if (message.type === 'reviewCreated') {
         // extension signaled review created — clear selection
         setSelectedFiles([]);
+        setIsCreatingReview(false);
+      }else if (message.type === 'fileAdded'){
+        console.log('===================================')
+        setIsCreatingReview(true)
       }
     };
 
@@ -138,6 +144,7 @@ export default function FileReviewTab({ vscode, selectedFiles, setSelectedFiles,
   };
 
   const handleSubmitReview = () => {
+    setIsCreatingReview(true)
     // Build review payload. For each selected file include path and chunks (if available)
     const payload = selectedFiles.map(f => ({ path: f.path, language: f.language || null, chunks: f.chunks || null }));
     vscode.postMessage({ type: 'createFileReview', data: { files: payload, selectedModel  } });
@@ -241,10 +248,14 @@ export default function FileReviewTab({ vscode, selectedFiles, setSelectedFiles,
               width: 'auto',
               padding: '0.6rem 1rem'
             } as any}
+            disabled={isCreatingReview}
             onClick={handleSubmitReview}
           // disabled={!currentBranch || (!baseBranch && !selectedCommit) || !selectedModel}
           >
-            Create Review
+            {
+              isCreatingReview ? 'Creating...' : 'Create Review'
+            }
+            {/* Create Review */}
             {/* {selectedCommit ? `(from commit ${selectedCommit.substring(0, 8)})` : `(from ${baseBranch})`} with {chatModels.find((model: any) => model.id === selectedModel)?.name || 'AI'} */}
           </button>
         </div>
