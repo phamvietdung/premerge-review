@@ -8,7 +8,7 @@ import { GitReviewDataService } from './services/commit-review/gitReviewDataServ
 import { ReviewFileProcessParams, ReviewService } from './services/reviewService';
 import { DiffViewerService } from './services/commit-review/diffViewerService';
 import { ReviewHistoryView } from './services/commit-review/reviewHistoryView';
-import { ReviewResultService } from './services/commit-review/reviewResultService';
+import { ReviewResultService, ReviewResultType } from './services/commit-review/reviewResultService';
 import { MessageType } from './models/messageTypes';
 import { FileReviewResultService } from './services/file-review/reviewResultService';
 
@@ -311,17 +311,23 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
 
                         const chunks: string[] = [];
 
+                        const fileNames : string[] = [];
+
                         for (const file of files) {
                             const fileUri = vscode.Uri.file(file.path); 
                             const bytes = await vscode.workspace.fs.readFile(fileUri);
                             const content = Buffer.from(bytes).toString('utf8');
 
+                            const fileName = path.basename(file.path);
+
                             chunks.push(
-                                `file: ${path.basename(file.path)}\n` +
+                                `file: ${fileName}\n` +
                                 '-------\n' +
                                 content +
                                 '\n-------'
                             );
+
+                            fileNames.push(fileName)
                         }
 
                         const combined = chunks.join('\n');
@@ -338,8 +344,10 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                             }, async (progress, token) => {
                                 // Use ReviewService to process the review
                                 await reviewService.processReviewFile({
+                                    type :'FILE',
                                     content : combined,
-                                    selectedModel
+                                    selectedModel,
+                                    fileNames : fileNames
                                 } as ReviewFileProcessParams, this._extensionContext, (increment: number, message: string) => {
                                     progress.report({ increment, message });
                                 });
@@ -441,6 +449,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                                         if (reviewService) {
                                             reviewService.setExtensionContext(this._extensionContext);
                                             await this.processReviewWithService(reviewService, {
+                                                type : 'COMMIT',
                                                 currentBranch,
                                                 baseBranch,
                                                 selectedCommit
@@ -601,6 +610,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                         if (reviewService) {
                             reviewService.setExtensionContext(this._extensionContext);
                             await this.processReviewWithService(reviewService, {
+                                type : 'COMMIT',
                                 currentBranch: reviewData.currentBranch,
                                 baseBranch: reviewData.baseBranch,
                                 selectedCommit: reviewData.selectedCommit
@@ -887,6 +897,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
      * Process review using ReviewService
      */
     private async processReviewWithService(reviewService: ReviewService, params: {
+        type : ReviewResultType,
         currentBranch: string;
         baseBranch: string;
         selectedCommit?: string;

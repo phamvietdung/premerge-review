@@ -81,8 +81,7 @@ export default function FileReviewTab({ vscode, selectedFiles, setSelectedFiles,
         setSelectedFiles([]);
         setIsCreatingReview(false);
       }else if (message.type === 'fileAdded'){
-        console.log('===================================')
-        setIsCreatingReview(true)
+        addFile(message.filePath)
       }
     };
 

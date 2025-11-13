@@ -33,7 +33,8 @@
         "vscode": "^1.102.0"
     },
     "activationEvents": [
-        "onCommand:fileReview.add"
+        "onCommand:fileReview.add",
+        "onCommand:folderReview.add"
     ],
     "categories": [
         "Other",
@@ -56,6 +57,10 @@
             {
                 "command": "fileReview.add",
                 "title": "PreMerge - Add to review"
+            },
+            {
+                "command": "folderReview.add",
+                "title": "PreMerge - Add folder to review"
             }
         ],
         "views": {
@@ -106,6 +111,11 @@
                     "when": "!explorerResourceIsFolder && resourceScheme == 'file'",
                     "command": "fileReview.add",
                     "group": "navigation@10"
+                },
+                {
+                    "when": "explorerResourceIsFolder && resourceScheme == 'file'",
+                    "command": "folderReview.add",
+                    "group": "navigation@10"
                 }
             ],
             "commandPalette": [
@@ -114,7 +124,7 @@
                     "when": "true"
                 },
                 {
-                    "command": "fileReview.showList",
+                    "command": "folderReview.add",
                     "when": "true"
                 }
             ]
@@ -124,7 +134,13 @@
                 "command": "fileReview.add",
                 "key": "ctrl+alt+r",
                 "mac": "cmd+alt+r",
-                "when": "explorerViewletVisible && filesExplorerFocus"
+                "when": "explorerViewletVisible && filesExplorerFocus && !explorerResourceIsFolder"
+            },
+            {
+                "command": "folderReview.add",
+                "key": "ctrl+alt+shift+r",
+                "mac": "cmd+alt+shift+r",
+                "when": "explorerViewletVisible && filesExplorerFocus && explorerResourceIsFolder"
             },
             {
                 "command": "fileReview.showList",

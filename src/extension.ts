@@ -79,8 +79,70 @@ export function activate(context: vscode.ExtensionContext) {
 	});
 
 
+	// Command to add all files in a folder to FileReviewTab list
+	const addFolderToReviewCommand = vscode.commands.registerCommand('folderReview.add', async (folderPathArg?: any) => {
+		try {
+			let folderPath: string | undefined;
+
+			if (typeof folderPathArg === 'string') {
+				folderPath = folderPathArg;
+			} else if (folderPathArg && typeof folderPathArg === 'object') {
+				// vscode.Uri
+				if (folderPathArg.fsPath && typeof folderPathArg.fsPath === 'string') {
+					folderPath = folderPathArg.fsPath;
+				} else if (folderPathArg.path && typeof folderPathArg.path === 'string') {
+					folderPath = folderPathArg.path;
+				}
+			}
+
+			if (!folderPath) {
+				folderPath = await vscode.window.showInputBox({ prompt: 'Enter folder path to add all files to review' });
+			}
+
+			if (!folderPath) {
+				vscode.window.showInformationMessage('No folder path provided');
+				return;
+			}
+
+			// Check if path is a directory
+			const folderUri = vscode.Uri.file(folderPath);
+			try {
+				const stat = await vscode.workspace.fs.stat(folderUri);
+				if (stat.type !== vscode.FileType.Directory) {
+					vscode.window.showWarningMessage('The selected path is not a folder');
+					return;
+				}
+			} catch (err) {
+				vscode.window.showErrorMessage(`Folder not found: ${folderPath}`);
+				return;
+			}
+
+			// Recursively find all files in the folder
+			const files = await vscode.workspace.findFiles(
+				new vscode.RelativePattern(folderUri, '**/*'),
+				'**/node_modules/**'
+			);
+
+			if (files.length === 0) {
+				vscode.window.showInformationMessage('No files found in the selected folder');
+				return;
+			}
+
+			// Add all files to review
+			for (const fileUri of files) {
+				provider.addFileToReview(fileUri.fsPath);
+			}
+
+			vscode.window.showInformationMessage(`Added ${files.length} file(s) from folder to review list`);
+		} catch (error) {
+			console.error('Error handling folderReview.add command:', error);
+			vscode.window.showErrorMessage('Failed to add folder to review list');
+		}
+	});
+
 	context.subscriptions.push(
 		addFileToReviewCommand,
+		addFolderToReviewCommand,
 	);
 }
 

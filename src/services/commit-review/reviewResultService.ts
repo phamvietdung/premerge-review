@@ -17,8 +17,12 @@
  */
 import * as vscode from 'vscode';
 
+export type ReviewResultType = 'FILE' | 'COMMIT';
+
 export interface ReviewResultData {
     id: string;
+    type : ReviewResultType,
+    title? : string,
     timestamp: Date;
     reviewData: {
         currentBranch: string;
@@ -72,10 +76,12 @@ export class ReviewResultService {
     /**
      * Store a review result
      */
-    public storeReviewResult(reviewData: any, reviewResults: any): string {
+    public storeReviewResult(type : ReviewResultType, reviewData: any, reviewResults: any, title? : string): string {
         const reviewId = this.generateReviewId();
         const resultData: ReviewResultData = {
             id: reviewId,
+            type,
+            title,
             timestamp: new Date(),
             reviewData,
             reviewResults

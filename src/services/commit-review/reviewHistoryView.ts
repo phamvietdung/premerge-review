@@ -284,11 +284,18 @@ export class ReviewHistoryView {
                 : '';
 
             const alreadyShared = !!result.sharedGitsUrl;
+
+            console.log("============================");
+
+            console.log(result)
+
             return `
                 <div class="result-item">
                     <div class="result-header">
                         <div class="result-title">
-                            <strong>${branchDisplay}</strong>
+                            ${result.type == 'COMMIT' ? 
+                                `<strong>${branchDisplay}</strong>` 
+                                : 'File Review'}
                             ${isMultiPart ? '<span class="multi-part-badge">Multi-Part</span>' : ''}
                         </div>
                         <div class="result-meta">
@@ -298,7 +305,15 @@ export class ReviewHistoryView {
                     </div>
                     ${commitInfo}
                     <div class="result-summary">
-                        ${result.reviewResults.summary}${partsInfo}
+                        ${result.type == 'COMMIT'
+                        ? `${result.reviewResults.summary}${partsInfo}` : ''}
+
+                        ${result.type == 'FILE'
+                        ? 
+                        (Array.isArray(result.reviewData.diffSummary.files)
+                            ? `<ul>${result.reviewData.diffSummary.files.map(f => `<li>${f}</li>`).join('')}</ul>`
+                        : result.reviewData.diffSummary.files) : ''}
+                        
                     </div>
                     <div class="result-stats">
                         <span class="stat">📁 ${fileCount} files</span>

@@ -29,19 +29,22 @@ import {
 } from "./copilot/copilotChatService";
 import { DiffViewerService } from "./commit-review/diffViewerService";
 import { SlackService } from "./intergrations/slackService";
-import { ReviewResultService } from "./commit-review/reviewResultService";
+import { ReviewResultService, ReviewResultType } from "./commit-review/reviewResultService";
 import { ReviewHistoryView } from "./commit-review/reviewHistoryView";
 
 // Interface for review processing parameters
 export interface ReviewProcessParams {
+    type : ReviewResultType;
     currentBranch: string;
     baseBranch: string;
     selectedCommit?: string;
 }
 
 export interface ReviewFileProcessParams {
+    type : ReviewResultType;
     content: string,
     selectedModel : string,
+    fileNames : string[],
     // currentBranch: string;
     // baseBranch: string;
     // selectedCommit?: string;
@@ -110,6 +113,7 @@ export class ReviewService {
             // Step 4: Generate review comments/suggestions
             progressCallback?.(80, "Generating review feedback...");
             const reviewResults = await this.generateReviewFeedback(
+                params.type,
                 reviewData,
                 instructions,
                 context
@@ -150,8 +154,10 @@ export class ReviewService {
             // Step 4: Generate review comments/suggestions
             progressCallback?.(80, "Generating review feedback...");
             const reviewResults = await this.generateFileReviewFeedback(
+                params.type,
                 instructions,
                 params.content,
+                params.fileNames,
                 params.selectedModel,
                 context
             );
@@ -277,6 +283,7 @@ export class ReviewService {
      * Generate review feedback with intelligent instruction routing
      */
     private async generateReviewFeedback(
+        type : ReviewResultType ,
         reviewData: ReviewData,
         instructions: InstructionFile[],
         context: vscode.ExtensionContext
@@ -311,6 +318,7 @@ export class ReviewService {
 
         // Send review request and get result
         const reviewResult = await SendReviewDiffChangeRequest(
+            type,
             combineInstructionContent,
             reviewData.diff,
             context,
@@ -333,7 +341,7 @@ export class ReviewService {
         // Only store result if it wasn't already stored by multi-part flow
         if (!currentResult || !currentResult.reviewResults.isMultiPart) {
             // Store the review result in memory
-            reviewResultService.storeReviewResult(reviewData, resultData);
+            reviewResultService.storeReviewResult(type, reviewData, resultData);
 
             // Show review history after data has been stored (avoid timing issues)
             setTimeout(() => {
@@ -351,8 +359,10 @@ export class ReviewService {
     }
 
     private async generateFileReviewFeedback(
+        type : ReviewResultType,
         instructions: InstructionFile[],
         content: string,
+        fileNames : string[],
         selectedModel : string,
         context: vscode.ExtensionContext
     ): Promise<any> {
@@ -369,6 +379,7 @@ export class ReviewService {
         } files)`;
 
         const reviewResult = await SendReviewDiffChangeRequest(
+            type,
             combineInstructionContent,
             content,
             context,
@@ -391,14 +402,15 @@ export class ReviewService {
         // Only store result if it wasn't already stored by multi-part flow
         if (!currentResult || !currentResult.reviewResults.isMultiPart) {
             // Store the review result in memory
-            reviewResultService.storeReviewResult({
+            reviewResultService.storeReviewResult('FILE',
+                {
                 currentBranch: 'N/A',
                 baseBranch: 'N/A',
                 selectedCommit: undefined,
                 selectedModel: selectedModel,
                 diff: '',
                 diffSummary: {
-                    files: ['file-content'],
+                    files: fileNames,
                     insertions: 0,
                     deletions: 0
                 },

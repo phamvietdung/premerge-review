@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { ReviewHistoryView } from '../commit-review/reviewHistoryView';
-import { ReviewResultService } from '../commit-review/reviewResultService';
+import { ReviewResultService, ReviewResultType } from '../commit-review/reviewResultService';
 import { GitReviewDataService } from '../commit-review/gitReviewDataService';
 import { getExtensionSetting } from "../../helpers";
 
@@ -18,6 +18,7 @@ export interface AuditContext {
 }
 
 export async function SendReviewDiffChangeRequest(
+    type : ReviewResultType,
     instructionContents: string,
     content: string, // content to review
     context: vscode.ExtensionContext,
@@ -49,14 +50,15 @@ export async function SendReviewDiffChangeRequest(
     
     if (estimatedTokens <= maxTokensPerPart) {
         // Single request for small diffs
-        return await sendSingleReviewRequest(instructionContents, content, context, auditContext, selectedModelId);
+        return await sendSingleReviewRequest(type, instructionContents, content, context, auditContext, selectedModelId);
     } else {
         // Split into multiple parts for large diffs
-        return await sendMultiPartReviewRequest(instructionContents, content, context, maxTokensPerPart, auditContext, selectedModelId);
+        return await sendMultiPartReviewRequest(type, instructionContents, content, context, maxTokensPerPart, auditContext, selectedModelId);
     }
 }
 
 async function sendSingleReviewRequest(
+    type : ReviewResultType,
     instructionContents: string,
     content: string,
     context: vscode.ExtensionContext,
@@ -92,6 +94,7 @@ async function sendSingleReviewRequest(
 }
 
 async function sendMultiPartReviewRequest(
+    type : ReviewResultType,
     instructionContents: string,
     content: string,
     context: vscode.ExtensionContext,
@@ -125,7 +128,7 @@ async function sendMultiPartReviewRequest(
                     parts: []
                 };
 
-                const reviewId = reviewResultService.storeReviewResult(reviewData, initialResultData);
+                const reviewId = reviewResultService.storeReviewResult(type, reviewData, initialResultData);
 
                 // Split diff into parts
                 const diffParts = splitDiffIntoParts(content, maxTokensPerPart);
