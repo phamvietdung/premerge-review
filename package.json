@@ -2,7 +2,7 @@
     "name": "premerge-review",
     "displayName": "PreMerge Review",
     "description": "AI-assisted code review before merging with visual diff viewer, GitHub Copilot integration, and Slack notifications",
-    "version": "1.0.6",
+    "version": "1.0.7",
     "publisher": "phamvietdung",
     "icon": "media/icon.png",
     "repository": {
