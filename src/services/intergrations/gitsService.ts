@@ -4,6 +4,9 @@ export async function publishMarkdownToGist(
     content: string,
     filename = "note.md"
 ) {
+
+    filename = `${filename}.md`
+
     // Lấy GitHub session đã login
     const session = await vscode.authentication.getSession("github", ["gist"], {
         createIfNone: true,
