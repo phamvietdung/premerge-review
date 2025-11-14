@@ -13,3 +13,5 @@
 
 ![File Folder Review](./media/demo-premerge-review-2.gif)
 
+
+**Share via Gist**: Easily share your review results by uploading them to GitHub Gist.
